@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'media_image.dart';
 import 'design_system.dart';
+import 'demo_roster.dart';
 import 'package:image_picker/image_picker.dart';
 import 'platform_storage_native.dart' if (dart.library.js_interop) 'platform_storage_web.dart' as storage;
 import 'package:share_plus/share_plus.dart';
@@ -59,31 +60,13 @@ class Repository {
   Future<Database> get db async {
     if(_db!=null)return _db!;
     final databasePath=await storage.initializeStorage();
-    _db=await openDatabase(databasePath,version:2,
+    _db=await openDatabase(databasePath,version:3,
       onConfigure:(db) async=>db.execute('PRAGMA foreign_keys = ON'),
       onCreate:(db,version) async {
         await db.execute('CREATE TABLE clubs (id INTEGER PRIMARY KEY AUTOINCREMENT,libelle TEXT NOT NULL COLLATE NOCASE UNIQUE,logo TEXT)');
         await db.execute('CREATE TABLE joueurs (id INTEGER PRIMARY KEY AUTOINCREMENT,nom TEXT NOT NULL,prenom TEXT NOT NULL,date_naiss TEXT,tel TEXT NOT NULL,photo TEXT,club_id INTEGER NOT NULL REFERENCES clubs(id) ON DELETE RESTRICT,favorite INTEGER NOT NULL DEFAULT 0,goals INTEGER NOT NULL DEFAULT 0,assists INTEGER NOT NULL DEFAULT 0,appearances INTEGER NOT NULL DEFAULT 0,yellow_cards INTEGER NOT NULL DEFAULT 0)');
         await db.execute('CREATE INDEX joueur_club_index ON joueurs(club_id)');
-        final logos=[
-          'https://commons.wikimedia.org/wiki/Special:FilePath/Club_africain.logo.png',
-          'https://commons.wikimedia.org/wiki/Special:FilePath/Logo_1987.jpg',
-          'https://commons.wikimedia.org/wiki/Special:FilePath/Logo_historique_de_l%27Etoile_Sportive_du_Sahel_-_1925.jpg'
-        ];
-        final names=['Club Africain','Espérance Sportive','Étoile Sportive'];
-        for(var i=0;i<names.length;i++){
-          await db.insert('clubs',{'libelle':names[i],'logo':logos[i]});
-        }
-        final demo=[['Ben Ali','Youssef','22111222',1],['Trabelsi','Amine','98333444',1],['Mansour','Rayen','55123456',2],['Jaziri','Malek','20456789',2],['Gharbi','Sami','29123456',3],['Khalfallah','Karim','95123456',3]];
-        for(var i=0;i<demo.length;i++){
-          final row=demo[i];
-          await db.insert('joueurs',{'nom':row[0],'prenom':row[1],
-            'tel':row[2],'club_id':row[3],
-            'photo':'https://randomuser.me/api/portraits/men/${[11,12,14,19,22,35][i]}.jpg',
-            'goals':[8,3,12,5,7,2][i],'assists':[4,6,2,5,3,4][i],
-            'appearances':[14,12,15,13,12,11][i],
-            'yellow_cards':[2,1,3,2,0,1][i]});
-        }
+        await _seedCuratedRoster(db, existing:false);
         await _createRencontres(db);
         await _seedRencontres(db);
       },
@@ -118,9 +101,71 @@ class Repository {
           }
           await _seedRencontres(db);
         }
+        if(oldVersion<3){
+          await _seedCuratedRoster(db, existing:true);
+        }
       });
     return _db!;
   }
+
+  /// Idempotent historical showcase import. Existing user-created clubs and
+  /// player records are kept; only six exact legacy fictional samples are removed.
+  static Future<void> _seedCuratedRoster(Database db,{required bool existing}) async {
+    for(final club in demoClubs){
+      final rows=await db.query('clubs',where:'libelle=?',whereArgs:[club.name],limit:1);
+      if(rows.isEmpty){
+        await db.insert('clubs',{'libelle':club.name,'logo':club.logo});
+      }else{
+        final current=rows.first['logo'] as String?;
+        // Preserve custom club badges and only replace known legacy samples.
+        if(current==null||current.isEmpty||
+          current.contains('Logo_1987.jpg')||
+          current.contains('Club_africain.logo.png')||
+          current.contains('Logo_historique_de_l')){
+          await db.update('clubs',{'logo':club.logo},
+            where:'id=?',whereArgs:[rows.first['id']]);
+        }
+      }
+    }
+    if(existing){
+      final legacy=[
+        ['Ben Ali','Youssef','22111222'],
+        ['Trabelsi','Amine','98333444'],
+        ['Mansour','Rayen','55123456'],
+        ['Jaziri','Malek','20456789'],
+        ['Gharbi','Sami','29123456'],
+        ['Khalfallah','Karim','95123456'],
+      ];
+      for(final row in legacy){
+        await db.delete('joueurs',
+          where:'nom=? AND prenom=? AND tel=? AND favorite=0 '
+            "AND (photo IS NULL OR photo LIKE '%randomuser.me%')",
+          whereArgs:row);
+      }
+    }
+    final clubRows=await db.query('clubs');
+    final clubIds={for(final c in clubRows) c['libelle'] as String:c['id'] as int};
+    for(var i=0;i<demoPlayers.length;i++){
+      final p=demoPlayers[i];
+      final clubId=clubIds[p.club];
+      if(clubId==null)continue;
+      final prior=await db.query('joueurs',
+        columns:['id'],where:'club_id=? AND prenom=? AND nom=?',
+        whereArgs:[clubId,p.prenom,p.nom],limit:1);
+      if(prior.isNotEmpty)continue;
+      // Statistics are EXPLICITLY simulated. Contact details are not invented.
+      final goals=p.position=='Attaquant'?6+(i%11):
+        p.position=='Milieu'?2+(i%5):i%2;
+      final assists=p.position=='Gardien'?0:1+(i%7);
+      await db.insert('joueurs',{
+        'club_id':clubId,'prenom':p.prenom,'nom':p.nom,
+        'tel':'','date_naiss':null,'photo':demoPhotoUrl(p),
+        'favorite':0,'goals':goals,'assists':assists,
+        'appearances':12+(i%13),'yellow_cards':i%4,
+      });
+    }
+  }
+
   static Future<void> _createRencontres(Database db) async {
     await db.execute('CREATE TABLE IF NOT EXISTS rencontres ('
       'id INTEGER PRIMARY KEY AUTOINCREMENT,'
@@ -250,6 +295,7 @@ class _AccueilState extends State<Accueil> {
   }
   Future<void> toggle(Joueur joueur) async {await Repository.instance.favori(joueur);await reload();}
   Future<void> appeler(Joueur joueur) async {
+    if(joueur.tel.trim().isEmpty){notify('Aucun numéro de téléphone renseigné pour ce joueur.');return;}
     try{final numero=joueur.tel.replaceAll(RegExp(r'[^0-9+]'),'');
       if(!await launchUrl(Uri(scheme:'tel',path:numero))){notify('Téléphone non disponible sur cet appareil.');}
     }catch(e){notify('Impossible de lancer un appel.');}
@@ -1078,7 +1124,188 @@ class _JoueurFormState extends State<JoueurForm> {
           const SizedBox(height:12),TextFormField(controller:nom,validator:requiredField,
             decoration:const InputDecoration(labelText:'Nom *')),
           const SizedBox(height:12),TextFormField(controller:tel,keyboardType:TextInputType.phone,
-            validator:(v)=>v==null||!RegExp(r'^\+?[0-9 ]{6,16}$').hasMatch(v.trim())?'Numéro invalide':null,
+            validator:(v)=>v==null||v.trim().isEmpty?null:
+              (!RegExp(r'^\+?[0-9 ]{6,16}
+            decoration:const InputDecoration(labelText:'Téléphone (facultatif)')),
+          const SizedBox(height:12),DropdownButtonFormField<int>(initialValue:clubId,isExpanded:true,
+            decoration:const InputDecoration(labelText:'Club *'),
+            items:widget.clubs.map((c)=>DropdownMenuItem(value:c.id,
+              child:Text(c.libelle,overflow:TextOverflow.ellipsis))).toList(),
+            onChanged:(v)=>setState(()=>clubId=v),validator:(v)=>v==null?'Club obligatoire':null),
+          const SizedBox(height:12),InkWell(onTap:() async {
+            final date=await showDatePicker(context:context,initialDate:birth??DateTime(2002),
+              firstDate:DateTime(1940),lastDate:DateTime.now());
+            if(date!=null)setState(()=>birth=date);
+          },child:InputDecorator(decoration:const InputDecoration(labelText:'Date de naissance',
+              suffixIcon:Icon(Icons.calendar_month_outlined)),
+
+            child:Text(birth==null?'Choisir une date':
+              birth!.day.toString().padLeft(2,'0')+'/'+birth!.month.toString().padLeft(2,'0')+'/'+birth!.year.toString()))),
+          const SizedBox(height:21),
+          const Divider(),
+          const SizedBox(height:16),
+          const Align(alignment:Alignment.centerLeft,child:Row(children:[Icon(Icons.bar_chart_rounded,color:AppPalette.primary,size:18),SizedBox(width:8),Text('PERFORMANCES',style:TextStyle(fontSize:11,letterSpacing:1.2,fontWeight:FontWeight.w900,color:AppPalette.primary))])),
+          const SizedBox(height:8),
+          Row(children:[
+            Expanded(child:_statInput(buts,'Buts')),
+            const SizedBox(width:8),
+            Expanded(child:_statInput(passes,'Passes'))
+          ]),
+          const SizedBox(height:10),
+          Row(children:[
+            Expanded(child:_statInput(matchs,'Matchs')),
+            const SizedBox(width:8),
+            Expanded(child:_statInput(cartons,'Cartons jaunes'))
+          ])
+        ])))),
+      actions:[OutlinedButton(onPressed:()=>Navigator.pop(context),child:const Text('Annuler')),
+        FilledButton.icon(icon:const Icon(Icons.check_circle_outline,size:18),label:const Text('Enregistrer'),onPressed:(){
+          if(!form.currentState!.validate())return;
+          final naissance=birth==null?null:
+            birth!.year.toString()+'-'+birth!.month.toString().padLeft(2,'0')+'-'+birth!.day.toString().padLeft(2,'0');
+          Navigator.pop(context,Joueur(id:widget.joueur?.id,nom:nom.text.trim(),prenom:prenom.text.trim(),
+            tel:tel.text.trim(),clubId:clubId!,naissance:naissance,photo:photo,
+            favori:widget.joueur?.favori??false,
+            buts:int.parse(buts.text),passes:int.parse(passes.text),
+            matchs:int.parse(matchs.text),cartons:int.parse(cartons.text)));
+        })]
+    );
+  }
+}
+
+
+class ClubForm extends StatefulWidget {
+  final Club? club;
+  const ClubForm({super.key,this.club});
+  @override State<ClubForm> createState()=>_ClubFormState();
+}
+class _ClubFormState extends State<ClubForm> {
+  final keyForm=GlobalKey<FormState>();
+  late final TextEditingController nom;
+  String? logo;
+  @override void initState(){
+    super.initState();nom=TextEditingController(text:widget.club?.libelle??'');
+    logo=widget.club?.logo;
+  }
+  @override void dispose(){nom.dispose();super.dispose();}
+  @override Widget build(BuildContext context)=>AlertDialog(
+    title:Row(children:[const Icon(Icons.shield_outlined,color:AppPalette.primary),const SizedBox(width:10),Expanded(child:Text(widget.club==null?'Nouveau club':'Modifier le club',style:const TextStyle(fontWeight:FontWeight.w900)))]),
+    content:SizedBox(width:440,child:SingleChildScrollView(child:Form(
+      key:keyForm,child:Column(mainAxisSize:MainAxisSize.min,children:[
+        TextFormField(controller:nom,autofocus:true,
+          decoration:const InputDecoration(labelText:'Nom du club *'),
+          validator:(v)=>v==null||v.trim().isEmpty?'Nom obligatoire':null),
+        const SizedBox(height:18),
+        MediaField(initial:logo,title:'Logo / image du club',
+          onChanged:(v)=>logo=v)
+      ])))),
+    actions:[
+      OutlinedButton(onPressed:()=>Navigator.pop(context),child:const Text('Annuler')),
+      FilledButton.icon(icon:const Icon(Icons.check_circle_outline,size:18),label:const Text('Enregistrer'),onPressed:(){
+        if(!keyForm.currentState!.validate())return;
+        Navigator.pop(context,Club(nom.text.trim(),id:widget.club?.id,logo:logo));
+      })
+    ]);
+}
+
+class RencontreForm extends StatefulWidget {
+  final List<Club> clubs;final Rencontre? rencontre;
+  const RencontreForm({super.key,required this.clubs,this.rencontre});
+  @override State<RencontreForm> createState()=>_RencontreFormState();
+}
+class _RencontreFormState extends State<RencontreForm> {
+  final form=GlobalKey<FormState>();
+  late final TextEditingController lieu,scoreD,scoreE;
+  late DateTime date;
+  late int domicile,exterieur;
+  late String statut;
+  @override void initState(){
+    super.initState();final m=widget.rencontre;
+    domicile=m?.domicile??widget.clubs.first.id!;
+    exterieur=m?.exterieur??widget.clubs.firstWhere(
+      (c)=>c.id!=domicile).id!;
+    date=m?.date??DateTime.now().add(const Duration(days:3));
+    statut=m?.statut??'À venir';
+    lieu=TextEditingController(text:m?.lieu??'Stade municipal');
+    scoreD=TextEditingController(text:m?.scoreDomicile?.toString()??'');
+    scoreE=TextEditingController(text:m?.scoreExterieur?.toString()??'');
+  }
+  @override void dispose(){
+    lieu.dispose();scoreD.dispose();scoreE.dispose();super.dispose();
+  }
+  Widget clubSelect(String label,int value,ValueChanged<int?> change)=>
+    DropdownButtonFormField<int>(value:value,isExpanded:true,
+      decoration:InputDecoration(labelText:label),
+      items:widget.clubs.map((c)=>DropdownMenuItem(value:c.id,
+        child:Text(c.libelle,overflow:TextOverflow.ellipsis))).toList(),
+      onChanged:change);
+  String get displayDate=> '${date.day.toString().padLeft(2,'0')}/${date.month.toString().padLeft(2,'0')}/${date.year}';
+  String get displayTime=> '${date.hour.toString().padLeft(2,'0')}:${date.minute.toString().padLeft(2,'0')}';
+  @override Widget build(BuildContext context)=>AlertDialog(
+    title:Row(children:[const Icon(Icons.calendar_month_outlined,color:AppPalette.primary),const SizedBox(width:10),Expanded(child:Text(widget.rencontre==null?'Planifier un match':'Modifier le match',style:const TextStyle(fontWeight:FontWeight.w900)))]),
+    content:SizedBox(width:440,child:SingleChildScrollView(child:Form(
+      key:form,child:Column(mainAxisSize:MainAxisSize.min,children:[
+        clubSelect('Club à domicile',domicile,(v){if(v!=null)setState(()=>domicile=v);}),
+        const SizedBox(height:12),
+        clubSelect('Club visiteur',exterieur,(v){if(v!=null)setState(()=>exterieur=v);}),
+        const SizedBox(height:12),
+        TextFormField(controller:lieu,decoration:const InputDecoration(
+          labelText:'Stade / lieu *'),
+          validator:(v)=>v==null||v.trim().isEmpty?'Lieu obligatoire':null),
+        const SizedBox(height:12),
+        Row(children:[
+          Expanded(child:OutlinedButton.icon(icon:const Icon(Icons.calendar_month),
+            label:Text(displayDate),onPressed:() async {
+              final value=await showDatePicker(context:context,initialDate:date,
+                firstDate:DateTime(2020),lastDate:DateTime(2100));
+              if(value!=null)setState(()=>date=DateTime(value.year,value.month,
+                value.day,date.hour,date.minute));
+            })),
+          const SizedBox(width:9),
+          Expanded(child:OutlinedButton.icon(icon:const Icon(Icons.schedule),
+            label:Text(displayTime),onPressed:() async {
+              final value=await showTimePicker(context:context,
+                initialTime:TimeOfDay.fromDateTime(date));
+              if(value!=null)setState(()=>date=DateTime(date.year,date.month,date.day,
+                value.hour,value.minute));
+            }))
+        ]),
+        const SizedBox(height:12),
+        DropdownButtonFormField<String>(value:statut,
+          decoration:const InputDecoration(labelText:'Statut'),
+          items:['À venir','En cours','Terminé','Reporté'].map((v)=>
+            DropdownMenuItem(value:v,child:Text(v))).toList(),
+          onChanged:(v){if(v!=null)setState(()=>statut=v);}),
+        if(statut=='Terminé') ...[
+          const SizedBox(height:12),
+          Row(children:[
+            Expanded(child:TextFormField(controller:scoreD,
+              keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'Buts domicile'),
+              validator:(v)=>int.tryParse(v??'')==null||int.parse(v!)<0?'Score invalide':null)),
+            const SizedBox(width:10),
+            Expanded(child:TextFormField(controller:scoreE,
+              keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'Buts extérieur'),
+              validator:(v)=>int.tryParse(v??'')==null||int.parse(v!)<0?'Score invalide':null))
+          ])
+        ]
+      ])))),
+    actions:[
+      OutlinedButton(onPressed:()=>Navigator.pop(context),child:const Text('Annuler')),
+      FilledButton.icon(icon:const Icon(Icons.check_circle_outline,size:18),label:const Text('Enregistrer'),onPressed:(){
+        if(!form.currentState!.validate())return;
+        if(domicile==exterieur){
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content:Text('Choisissez deux clubs différents.')));
+          return;
+        }
+        Navigator.pop(context,Rencontre(id:widget.rencontre?.id,
+          domicile:domicile,exterieur:exterieur,date:date,lieu:lieu.text.trim(),
+          statut:statut,scoreDomicile:statut=='Terminé'?int.tryParse(scoreD.text):null,
+          scoreExterieur:statut=='Terminé'?int.tryParse(scoreE.text):null));
+      })
+    ]);
+}
+).hasMatch(v.trim())?'Numéro invalide':null),
             decoration:const InputDecoration(labelText:'Téléphone *')),
           const SizedBox(height:12),DropdownButtonFormField<int>(initialValue:clubId,isExpanded:true,
             decoration:const InputDecoration(labelText:'Club *'),
