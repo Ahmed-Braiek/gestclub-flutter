@@ -698,8 +698,8 @@ class _RencontreFormState extends State<RencontreForm> {
       items:widget.clubs.map((c)=>DropdownMenuItem(value:c.id,
         child:Text(c.libelle,overflow:TextOverflow.ellipsis))).toList(),
       onChanged:change);
-  String displayDate=> '${date.day.toString().padLeft(2,'0')}/${date.month.toString().padLeft(2,'0')}/${date.year}';
-  String displayTime=> '${date.hour.toString().padLeft(2,'0')}:${date.minute.toString().padLeft(2,'0')}';
+  String get displayDate=> '${date.day.toString().padLeft(2,'0')}/${date.month.toString().padLeft(2,'0')}/${date.year}';
+  String get displayTime=> '${date.hour.toString().padLeft(2,'0')}:${date.minute.toString().padLeft(2,'0')}';
   @override Widget build(BuildContext context)=>AlertDialog(
     title:Text(widget.rencontre==null?'Planifier un match':'Modifier le match'),
     content:SizedBox(width:440,child:SingleChildScrollView(child:Form(
