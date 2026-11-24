@@ -16,7 +16,7 @@ flowchart TD
   S --> EXPORT[share_plus: CSV]
 ```
 
-Aucun backend ni serveur SQLite externe n'est nécessaire. SQLite est embarquée dans l'application, et chaque installation possède sa propre base.
+Aucun backend ni serveur SQLite externe n'est nécessaire. SQLite est embarquée dans l'application : Android via sqflite, Windows via sqflite_common_ffi, Chrome via SQLite WebAssembly et IndexedDB. Chaque installation ou origine web possède sa propre base.
 
 ## Modèle relationnel
 
@@ -53,10 +53,10 @@ La clé étrangère `joueurs.club_id` interdit de supprimer un club ayant encore
 
 ## Limites documentées
 - Appels : nécessitent une application de téléphonie ; sur Windows ou émulateur, le composeur peut être absent.
-- Photos : conservées localement dans l'espace Documents de l'application.
+- Photos : compressées via image_picker puis enregistrées en Base64 dans SQLite pour rester compatibles Android, Windows et Chrome.
 - Export CSV : ouvre le panneau de partage du système ; aucune sauvegarde cloud automatique.
 - Jeu de données de démonstration : clubs et joueurs fictifs initialisés une seule fois.
-- Les fichiers de plateforme Android/Windows sont générés localement avec `flutter create .`.
+- Les fichiers de plateforme Android/Windows/Chrome sont générés localement avec `flutter create --platforms=android,windows,web .` ; Chrome requiert en plus `dart run sqflite_common_ffi_web:setup`.
 - Toute modification de schéma SQLite nécessitera une migration de version de base.
 
 ## Validation
