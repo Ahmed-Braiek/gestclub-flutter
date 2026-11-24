@@ -23,14 +23,14 @@ jobs:
         run: flutter create --platforms=android,windows,web --project-name championnat_pro .
       - name: Install dependencies
         run: flutter pub get
-      - name: Set up web SQLite assets
-        run: dart run sqflite_common_ffi_web:setup
       - name: Remove Flutter template counter test
         run: rm -f test/widget_test.dart
       - name: Static analysis
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Unit tests
         run: flutter test
+      - name: Set up web SQLite assets
+        run: dart run sqflite_common_ffi_web:setup
       - name: Build Chrome-compatible web app
         run: flutter build web
       - name: Build Android APK
