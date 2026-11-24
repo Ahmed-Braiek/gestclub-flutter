@@ -20,13 +20,17 @@ jobs:
           flutter --version
           dart --version
       - name: Create platform scaffolding
-        run: flutter create --platforms=android,windows --project-name championnat_pro .
+        run: flutter create --platforms=android,windows,web --project-name championnat_pro .
       - name: Install dependencies
         run: flutter pub get
+      - name: Set up web SQLite assets
+        run: dart run sqflite_common_ffi_web:setup
       - name: Static analysis
         run: flutter analyze
       - name: Unit tests
         run: flutter test
+      - name: Build Chrome-compatible web app
+        run: flutter build web
       - name: Build Android APK
         run: flutter build apk --debug
       - name: Upload debug APK
