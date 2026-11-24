@@ -706,59 +706,83 @@ class _AccueilState extends State<Accueil> {
   String formatHour(DateTime d) =>
     '${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';
 
+
   Widget statistiquesPage() {
-    final classement=[...joueurs]..sort((a,b){
-      final goals=b.buts.compareTo(a.buts);
-      return goals==0?b.passes.compareTo(a.passes):goals;
+    final ranking=[...joueurs]..sort((a,b){
+      final result=b.buts.compareTo(a.buts);
+      return result!=0?result:b.passes.compareTo(a.passes);
     });
     final totalGoals=joueurs.fold<int>(0,(sum,j)=>sum+j.buts);
     final totalAssists=joueurs.fold<int>(0,(sum,j)=>sum+j.passes);
-    final totalMatches=joueurs.fold<int>(0,(sum,j)=>sum+j.matchs);
-    final maxGoals=classement.isEmpty?1:(classement.first.buts>0?classement.first.buts:1);
+    final totalAppearances=joueurs.fold<int>(0,(sum,j)=>sum+j.matchs);
+    final maxGoals=ranking.isEmpty?1:
+      (ranking.first.buts>0?ranking.first.buts:1);
     return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      heading('Performance des joueurs','Les performances sont des données de démonstration modifiables.'),
+      heading('Performances des joueurs',
+        'Suivez les buts, passes décisives et apparitions'),
       LayoutBuilder(builder:(context,box)=>GridView.count(
-        crossAxisCount:box.maxWidth>760?3:box.maxWidth>430?2:1,
-        childAspectRatio:2.15,mainAxisSpacing:12,crossAxisSpacing:12,
         shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+        crossAxisCount:box.maxWidth>=940?3:box.maxWidth>=570?2:1,
+        mainAxisExtent:150,mainAxisSpacing:13,crossAxisSpacing:13,
         children:[
-          statistic('$totalGoals','Buts inscrits',Icons.sports_soccer),
-          statistic('$totalAssists','Passes décisives',Icons.assistant_direction),
-          statistic('$totalMatches','Apparitions cumulées',Icons.timer_outlined),
+          StatPanel(value:'${totalGoals}',label:'Buts inscrits',
+            icon:Icons.sports_soccer_rounded,
+            accent:AppPalette.primary),
+          StatPanel(value:'${totalAssists}',label:'Passes décisives',
+            icon:Icons.assistant_direction_rounded,
+            accent:AppPalette.emerald),
+          StatPanel(value:'${totalAppearances}',label:'Apparitions cumulées',
+            icon:Icons.event_available_outlined,
+            accent:AppPalette.amber),
         ])),
-      const SizedBox(height:24),
-      heading('Classement des buteurs','Tri par buts puis passes décisives'),
-      if(classement.isEmpty)empty('Aucun joueur à afficher')
-      else for(var i=0;i<classement.length;i++)
-        Card(child:Padding(padding:const EdgeInsets.all(16),
-          child:Row(children:[
-            SizedBox(width:29,child:Text('${i+1}',style:const TextStyle(
-              color:blue,fontSize:19,fontWeight:FontWeight.bold))),
-            MediaImage(source:classement[i].photo,size:48),
-            const SizedBox(width:12),
-            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
-              children:[
-                Text(classement[i].fullName,
-                  style:const TextStyle(fontWeight:FontWeight.bold)),
-                Text(clubName(classement[i].clubId),style:const TextStyle(
-                  color:Colors.black54,fontSize:12)),
-                const SizedBox(height:8),
-                LinearProgressIndicator(value:classement[i].buts/maxGoals,
-                  minHeight:6,borderRadius:BorderRadius.circular(8)),
+      const SizedBox(height:29),
+      heading('Classement des buteurs',
+        'Données entrées manuellement dans les fiches des joueurs'),
+      if(ranking.isEmpty)
+        const EmptyPanel(title:'Aucune statistique disponible',
+          subtitle:'Ajoutez un joueur pour afficher le classement.',
+          icon:Icons.leaderboard_outlined)
+      else for(var i=0;i<ranking.length;i++)
+        Padding(padding:const EdgeInsets.only(bottom:11),
+          child:PressableCard(child:Row(children:[
+            SizedBox(width:28,child:Text('${i+1}',
+              style:TextStyle(color:i<3?AppPalette.primary:AppPalette.muted,
+                fontSize:18,fontWeight:FontWeight.w900))),
+            MediaImage(source:ranking[i].photo,size:51),
+            const SizedBox(width:13),
+            Expanded(child:Column(
+              crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Text(ranking[i].fullName,maxLines:1,
+                  overflow:TextOverflow.ellipsis,
+                  style:const TextStyle(fontWeight:FontWeight.w800)),
+                const SizedBox(height:4),
+                Text(clubName(ranking[i].clubId),maxLines:1,
+                  overflow:TextOverflow.ellipsis,
+                  style:const TextStyle(
+                    color:AppPalette.muted,fontSize:11)),
+                const SizedBox(height:10),
+                ClipRRect(
+                  borderRadius:BorderRadius.circular(10),
+                  child:LinearProgressIndicator(
+                    value:ranking[i].buts/maxGoals,
+                    minHeight:6,
+                    backgroundColor:AppPalette.primaryLight,
+                    color:AppPalette.primary)),
               ])),
-            const SizedBox(width:12),
+            const SizedBox(width:15),
             Column(crossAxisAlignment:CrossAxisAlignment.end,children:[
-              Text('${classement[i].buts} buts',style:const TextStyle(
-                fontWeight:FontWeight.bold,color:navy)),
-              Text('${classement[i].passes} passes • ${classement[i].matchs} matchs',
-                style:const TextStyle(fontSize:11,color:Colors.black54)),
-              Text('${classement[i].cartons} cartons jaunes',
-                style:const TextStyle(fontSize:11,color:Colors.black54)),
+              Text('${ranking[i].buts} buts',style:const TextStyle(
+                color:AppPalette.primary,fontWeight:FontWeight.w900,
+                fontSize:15)),
+              const SizedBox(height:5),
+              Text('${ranking[i].passes} passes',
+                style:const TextStyle(color:AppPalette.muted,fontSize:11)),
+              Text('${ranking[i].matchs} matchs',
+                style:const TextStyle(color:AppPalette.muted,fontSize:11)),
             ])
           ]))),
     ]);
   }
-
 
   Widget matchsPage() {
     final now=DateTime.now();
