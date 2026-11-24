@@ -186,11 +186,12 @@ class ChampionnatApp extends StatelessWidget {
 class Accueil extends StatefulWidget {const Accueil({super.key});@override State<Accueil> createState()=>_AccueilState();}
 class _AccueilState extends State<Accueil> {
   int section=0;int? clubFilter;String query='';bool favoritesOnly=false,loading=true;
-  List<Club> clubs=[];List<Joueur> joueurs=[];
+  List<Club> clubs=[];List<Joueur> joueurs=[];List<Rencontre> rencontres=[];
   @override void initState(){super.initState();reload();}
   Future<void> reload() async {
     try{final c=await Repository.instance.clubs();final j=await Repository.instance.joueurs();
-      if(mounted)setState((){clubs=c;joueurs=j;loading=false;});
+      final matches=await Repository.instance.rencontres();
+      if(mounted)setState((){clubs=c;joueurs=j;rencontres=matches;loading=false;});
     }catch(e){if(mounted){setState(()=>loading=false);notify('Erreur SQLite : '+e.toString());}}
   }
   void notify(String message){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(message)));}
@@ -201,18 +202,16 @@ class _AccueilState extends State<Accueil> {
       TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('Annuler')),
       FilledButton(onPressed:()=>Navigator.pop(c,true),child:const Text('Supprimer'))]))??false;
   Future<void> editClub([Club? club]) async {
-    final input=TextEditingController(text:club?.libelle??'');
-    final value=await showDialog<String>(context:context,builder:(c)=>AlertDialog(
-      title:Text(club==null?'Ajouter un club':'Modifier le club'),
-      content:TextField(controller:input,autofocus:true,decoration:const InputDecoration(labelText:'Nom du club')),
-      actions:[TextButton(onPressed:()=>Navigator.pop(c),child:const Text('Annuler')),
-        FilledButton(onPressed:()=>Navigator.pop(c,input.text.trim()),child:const Text('Enregistrer'))]));
-    if(value==null||value.trim().isEmpty)return;
-    try{await Repository.instance.saveClub(Club(value,id:club?.id));await reload();}
+    final value=await showDialog<Club>(context:context,
+      builder:(c)=>ClubForm(club:club));
+    if(value==null)return;
+    try{await Repository.instance.saveClub(value);await reload();}
     catch(e){notify('Ce nom est déjà utilisé ou une erreur est survenue.');}
   }
   Future<void> removeClub(Club club) async {
-    if(joueurs.any((j)=>j.clubId==club.id)){notify('Transférez les joueurs avant de supprimer leur club.');return;}
+    if(joueurs.any((j)=>j.clubId==club.id)||rencontres.any((m)=>m.domicile==club.id||m.exterieur==club.id)){
+      notify('Supprimez les rencontres associées et transférez les joueurs avant de supprimer ce club.');return;
+    }
     if(!await confirmation('Supprimer '+club.libelle+' ?'))return;
     await Repository.instance.deleteClub(club.id!);await reload();
   }
@@ -226,6 +225,18 @@ class _AccueilState extends State<Accueil> {
   Future<void> removeJoueur(Joueur joueur) async {
     if(!await confirmation('Supprimer '+joueur.fullName+' ?'))return;
     await Repository.instance.deleteJoueur(joueur.id!);await reload();
+  }
+  Future<void> editRencontre([Rencontre? rencontre]) async {
+    if(clubs.length<2){notify('Créez au moins deux clubs.');return;}
+    final value=await showDialog<Rencontre>(context:context,
+      builder:(c)=>RencontreForm(clubs:clubs,rencontre:rencontre));
+    if(value==null)return;
+    try{await Repository.instance.saveRencontre(value);await reload();}
+    catch(e){notify('Enregistrement du match impossible : $e');}
+  }
+  Future<void> removeRencontre(Rencontre rencontre) async {
+    if(!await confirmation('Supprimer cette rencontre ?'))return;
+    await Repository.instance.deleteRencontre(rencontre.id!);await reload();
   }
   Future<void> toggle(Joueur joueur) async {await Repository.instance.favori(joueur);await reload();}
   Future<void> appeler(Joueur joueur) async {
@@ -243,13 +254,13 @@ class _AccueilState extends State<Accueil> {
     }catch(e){notify('Export CSV impossible : '+e.toString());}
   }
   Widget navigation(bool wide){
-    final icons=[Icons.dashboard_rounded,Icons.shield_rounded,Icons.groups_rounded,Icons.star_rounded];
-    final names=['Tableau de bord','Clubs','Joueurs','Favoris'];
+    final icons=[Icons.dashboard_rounded,Icons.shield_rounded,Icons.groups_rounded,Icons.star_rounded,Icons.leaderboard_rounded,Icons.event_rounded];
+    final names=['Tableau de bord','Clubs','Joueurs','Favoris','Statistiques','Matchs'];
     return Container(width:wide?240:null,color:navy,child:SafeArea(child:Column(children:[
       const Padding(padding:EdgeInsets.all(25),child:Row(children:[
         Icon(Icons.emoji_events,color:Color(0xFFFFC76D),size:29),SizedBox(width:8),
         Expanded(child:Text('CHAMPIONNAT',style:TextStyle(color:Colors.white,fontWeight:FontWeight.bold)))])),
-      for(var i=0;i<4;i++)Padding(padding:const EdgeInsets.symmetric(horizontal:10,vertical:3),
+      for(var i=0;i<6;i++)Padding(padding:const EdgeInsets.symmetric(horizontal:10,vertical:3),
         child:ListTile(selected:section==i,selectedTileColor:const Color(0xFF293859),
           shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(12)),
           leading:Icon(icons[i],color:Colors.white70),
@@ -265,7 +276,7 @@ class _AccueilState extends State<Accueil> {
       body:Row(children:[if(wide)navigation(true),Expanded(child:SafeArea(child:Column(children:[
         Padding(padding:const EdgeInsets.all(16),child:Row(children:[
           if(!wide)Builder(builder:(x)=>IconButton(icon:const Icon(Icons.menu),onPressed:()=>Scaffold.of(x).openDrawer())),
-          Expanded(child:Text(['Vue d’ensemble','Gestion des clubs','Gestion des joueurs','Joueurs favoris'][section],
+          Expanded(child:Text(['Vue d’ensemble','Gestion des clubs','Gestion des joueurs','Joueurs favoris','Statistiques joueurs','Calendrier des matchs'][section],
             style:const TextStyle(color:navy,fontSize:22,fontWeight:FontWeight.w800))),
           if(section>=2)IconButton(onPressed:exporter,tooltip:'Exporter CSV',icon:const Icon(Icons.download)),
           const CircleAvatar(child:Icon(Icons.sports_soccer))
@@ -279,11 +290,11 @@ class _AccueilState extends State<Accueil> {
                 switchInCurve:Curves.easeOutCubic,switchOutCurve:Curves.easeInCubic,
                 transitionBuilder:(child,animation)=>FadeTransition(opacity:animation,
                   child:SlideTransition(position:Tween<Offset>(begin:const Offset(0,.025),end:Offset.zero).animate(animation),child:child)),
-                child:KeyedSubtree(key:ValueKey(section),child:section==0?dashboard():section==1?clubPage():joueurPage()))))))
+                child:KeyedSubtree(key:ValueKey(section),child:section==0?dashboard():section==1?clubPage():section==4?statistiquesPage():section==5?matchsPage():joueurPage()))))))
       ])))]),
-      floatingActionButton:section==0?null:FloatingActionButton.extended(
-        onPressed:()=>section==1?editClub():editJoueur(),icon:const Icon(Icons.add),
-        label:Text(section==1?'Nouveau club':'Nouveau joueur')));
+      floatingActionButton:section==0||section==4?null:FloatingActionButton.extended(
+        onPressed:()=>section==1?editClub():section==5?editRencontre():editJoueur(),icon:const Icon(Icons.add),
+        label:Text(section==1?'Nouveau club':section==5?'Nouveau match':'Nouveau joueur')));
   });
   Widget heading(String title,String caption)=>Padding(padding:const EdgeInsets.only(bottom:18),
     child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -318,12 +329,13 @@ class _AccueilState extends State<Accueil> {
       crossAxisSpacing:12,mainAxisSpacing:12,children:[
         statistic(clubs.length.toString(),'Clubs',Icons.shield),
         statistic(joueurs.length.toString(),'Joueurs',Icons.groups),
-        statistic(joueurs.where((j)=>j.favori).length.toString(),'Favoris',Icons.star)
+        statistic(joueurs.where((j)=>j.favori).length.toString(),'Favoris',Icons.star),
+        statistic(rencontres.where((m)=>m.statut=='À venir'&&!m.date.isBefore(DateTime.now())).length.toString(),'Matchs à venir',Icons.event)
       ])),
     const SizedBox(height:25),heading('Effectifs par club','Cliquez sur un club pour filtrer les joueurs'),
     if(clubs.isEmpty)empty('Aucun club') else for(final club in clubs)
       Card(child:ListTile(onTap:()=>navigate(2,club:club.id),
-        leading:const Icon(Icons.shield,color:blue),title:Text(club.libelle),
+        leading:MediaImage(source:club.logo,size:44,fallback:Icons.shield),title:Text(club.libelle),
         trailing:Text(joueurs.where((j)=>j.clubId==club.id).length.toString()+' joueurs')))
   ]);
   Widget clubPage()=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -338,7 +350,7 @@ class _AccueilState extends State<Accueil> {
           child:Transform.translate(offset:Offset(0,12*(1-value)),child:child)),
         child:Card(child:InkWell(onTap:()=>navigate(2,club:club.id),
         child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Row(children:[const CircleAvatar(child:Icon(Icons.shield)),const Spacer(),
+          Row(children:[MediaImage(source:club.logo,size:55,fallback:Icons.shield),const Spacer(),
             IconButton(onPressed:()=>editClub(club),tooltip:'Modifier',icon:const Icon(Icons.edit_outlined)),
             IconButton(onPressed:()=>removeClub(club),tooltip:'Supprimer',icon:const Icon(Icons.delete_outline,color:Colors.redAccent))]),
           const Spacer(),Text(club.libelle,maxLines:1,overflow:TextOverflow.ellipsis,
@@ -346,6 +358,9 @@ class _AccueilState extends State<Accueil> {
           Text(joueurs.where((j)=>j.clubId==club.id).length.toString()+' joueurs • Voir l’effectif')
         ])))));}))
   ]);
+  Widget _miniMetric(String icon,String value,String label)=>Row(mainAxisSize:MainAxisSize.min,
+    children:[Text(icon),const SizedBox(width:3),Text(value,style:const TextStyle(fontWeight:FontWeight.bold)),
+      const SizedBox(width:3),Text(label,style:const TextStyle(fontSize:10,color:Colors.black54))]);
   Widget joueurPage(){
     final q=query.trim().toLowerCase();
     final filtered=joueurs.where((j){
@@ -373,17 +388,15 @@ class _AccueilState extends State<Accueil> {
       if(filtered.isEmpty)empty('Aucun joueur trouvé')
       else LayoutBuilder(builder:(c,b)=>GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
         itemCount:filtered.length,gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount:b.maxWidth>1050?3:b.maxWidth>650?2:1,mainAxisExtent:194,
+          crossAxisCount:b.maxWidth>1050?3:b.maxWidth>650?2:1,mainAxisExtent:214,
           mainAxisSpacing:12,crossAxisSpacing:12),
         itemBuilder:(c,i){final j=filtered[i];final file=j.photo;
-          final hasPhoto=file!=null&&file.isNotEmpty;
           return TweenAnimationBuilder<double>(tween:Tween(begin:0,end:1),
           duration:Duration(milliseconds:280+(i%6)*55),curve:Curves.easeOutCubic,
           builder:(context,value,child)=>Opacity(opacity:value,
             child:Transform.translate(offset:Offset(0,12*(1-value)),child:child)),
           child:Card(child:Padding(padding:const EdgeInsets.all(15),child:Column(children:[
-            Row(children:[CircleAvatar(radius:25,backgroundImage:hasPhoto?MemoryImage(base64Decode(file!)):null,
-                child:hasPhoto?null:Text(j.prenom.isEmpty?'?':j.prenom.substring(0,1))),
+            Row(children:[MediaImage(source:file,size:50,fallback:Icons.person_outline),
               const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
                 Text(j.fullName,maxLines:1,overflow:TextOverflow.ellipsis,
                   style:const TextStyle(color:navy,fontSize:16,fontWeight:FontWeight.bold)),
@@ -393,7 +406,11 @@ class _AccueilState extends State<Accueil> {
                 icon:AnimatedSwitcher(duration:const Duration(milliseconds:220),
                   transitionBuilder:(child,animation)=>ScaleTransition(scale:animation,child:child),
                   child:Icon(j.favori?Icons.star:Icons.star_border,key:ValueKey(j.favori),color:j.favori?Colors.amber:Colors.black38)))]),
-            const SizedBox(height:12),Row(children:[const Icon(Icons.phone_outlined,size:16),
+            const SizedBox(height:8),Row(children:[
+              _miniMetric('⚽',j.buts.toString(),'Buts'),
+              const SizedBox(width:12),_miniMetric('↗',j.passes.toString(),'Passes'),
+              const SizedBox(width:12),_miniMetric('◷',j.matchs.toString(),'Matchs')]),
+            const SizedBox(height:8),Row(children:[const Icon(Icons.phone_outlined,size:16),
               const SizedBox(width:8),Text(j.tel)]),
             const Spacer(),const Divider(),
             Row(mainAxisAlignment:MainAxisAlignment.end,children:[
