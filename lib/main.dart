@@ -361,6 +361,119 @@ class _AccueilState extends State<Accueil> {
   Widget _miniMetric(String icon,String value,String label)=>Row(mainAxisSize:MainAxisSize.min,
     children:[Text(icon),const SizedBox(width:3),Text(value,style:const TextStyle(fontWeight:FontWeight.bold)),
       const SizedBox(width:3),Text(label,style:const TextStyle(fontSize:10,color:Colors.black54))]);
+
+  String formatDate(DateTime d) =>
+    '${d.day.toString().padLeft(2,'0')}/${d.month.toString().padLeft(2,'0')}/${d.year}';
+  String formatHour(DateTime d) =>
+    '${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';
+
+  Widget statistiquesPage() {
+    final classement=[...joueurs]..sort((a,b){
+      final goals=b.buts.compareTo(a.buts);
+      return goals==0?b.passes.compareTo(a.passes):goals;
+    });
+    final totalGoals=joueurs.fold<int>(0,(sum,j)=>sum+j.buts);
+    final totalAssists=joueurs.fold<int>(0,(sum,j)=>sum+j.passes);
+    final totalMatches=joueurs.fold<int>(0,(sum,j)=>sum+j.matchs);
+    final maxGoals=classement.isEmpty?1:(classement.first.buts>0?classement.first.buts:1);
+    return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      heading('Performance des joueurs','Les performances sont des données de démonstration modifiables.'),
+      LayoutBuilder(builder:(context,box)=>GridView.count(
+        crossAxisCount:box.maxWidth>760?3:box.maxWidth>430?2:1,
+        childAspectRatio:2.15,mainAxisSpacing:12,crossAxisSpacing:12,
+        shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+        children:[
+          statistic('$totalGoals','Buts inscrits',Icons.sports_soccer),
+          statistic('$totalAssists','Passes décisives',Icons.assistant_direction),
+          statistic('$totalMatches','Apparitions cumulées',Icons.timer_outlined),
+        ])),
+      const SizedBox(height:24),
+      heading('Classement des buteurs','Tri par buts puis passes décisives'),
+      if(classement.isEmpty)empty('Aucun joueur à afficher')
+      else for(var i=0;i<classement.length;i++)
+        Card(child:Padding(padding:const EdgeInsets.all(16),
+          child:Row(children:[
+            SizedBox(width:29,child:Text('${i+1}',style:const TextStyle(
+              color:blue,fontSize:19,fontWeight:FontWeight.bold))),
+            MediaImage(source:classement[i].photo,size:48),
+            const SizedBox(width:12),
+            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+              children:[
+                Text(classement[i].fullName,
+                  style:const TextStyle(fontWeight:FontWeight.bold)),
+                Text(clubName(classement[i].clubId),style:const TextStyle(
+                  color:Colors.black54,fontSize:12)),
+                const SizedBox(height:8),
+                LinearProgressIndicator(value:classement[i].buts/maxGoals,
+                  minHeight:6,borderRadius:BorderRadius.circular(8)),
+              ])),
+            const SizedBox(width:12),
+            Column(crossAxisAlignment:CrossAxisAlignment.end,children:[
+              Text('${classement[i].buts} buts',style:const TextStyle(
+                fontWeight:FontWeight.bold,color:navy)),
+              Text('${classement[i].passes} passes • ${classement[i].matchs} matchs',
+                style:const TextStyle(fontSize:11,color:Colors.black54)),
+              Text('${classement[i].cartons} cartons jaunes',
+                style:const TextStyle(fontSize:11,color:Colors.black54)),
+            ])
+          ]))),
+    ]);
+  }
+
+  Widget matchsPage() {
+    final now=DateTime.now();
+    final prochains=rencontres.where((m)=>m.statut=='À venir'&&!m.date.isBefore(now)).toList();
+    return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      heading('Calendrier des rencontres',
+        '${prochains.length} rencontre(s) à venir • calendrier fictif pour la démonstration.'),
+      if(rencontres.isEmpty)empty('Aucun match planifié. Créez votre première rencontre.')
+      else for(final m in rencontres)
+        Card(child:Padding(padding:const EdgeInsets.all(18),child:Column(children:[
+          Row(children:[
+            Expanded(child:Row(children:[
+              Icon(m.statut=='Terminé'?Icons.verified:Icons.event,color:blue,size:18),
+              const SizedBox(width:7),
+              Text('${formatDate(m.date)} • ${formatHour(m.date)}',
+                style:const TextStyle(fontWeight:FontWeight.w700)),
+            ])),
+            Chip(label:Text(m.statut)),
+            IconButton(icon:const Icon(Icons.edit_outlined),
+              tooltip:'Modifier le match',onPressed:()=>editRencontre(m)),
+            IconButton(icon:const Icon(Icons.delete_outline,color:Colors.redAccent),
+              tooltip:'Supprimer le match',onPressed:()=>removeRencontre(m)),
+          ]),
+          const SizedBox(height:12),
+          Row(children:[
+            Expanded(child:Column(children:[
+              MediaImage(source:clubs.where((c)=>c.id==m.domicile)
+                .map((c)=>c.logo).firstOrNull,size:55,fallback:Icons.shield_outlined),
+              const SizedBox(height:7),
+              Text(clubName(m.domicile),maxLines:2,textAlign:TextAlign.center,
+                style:const TextStyle(fontWeight:FontWeight.bold))
+            ])),
+            Padding(padding:const EdgeInsets.symmetric(horizontal:12),
+              child:Text(m.statut=='Terminé'
+                ? '${m.scoreDomicile??0} : ${m.scoreExterieur??0}' : 'VS',
+                style:const TextStyle(fontSize:24,color:navy,fontWeight:FontWeight.w900))),
+            Expanded(child:Column(children:[
+              MediaImage(source:clubs.where((c)=>c.id==m.exterieur)
+                .map((c)=>c.logo).firstOrNull,size:55,fallback:Icons.shield_outlined),
+              const SizedBox(height:7),
+              Text(clubName(m.exterieur),maxLines:2,textAlign:TextAlign.center,
+                style:const TextStyle(fontWeight:FontWeight.bold))
+            ])),
+          ]),
+          const SizedBox(height:14),
+          Row(mainAxisAlignment:MainAxisAlignment.center,children:[
+            const Icon(Icons.place_outlined,size:17,color:Colors.black54),
+            const SizedBox(width:6),
+            Flexible(child:Text(m.lieu,textAlign:TextAlign.center,
+              style:const TextStyle(color:Colors.black54))),
+          ])
+        ])))
+    ]);
+  }
+
   Widget joueurPage(){
     final q=query.trim().toLowerCase();
     final filtered=joueurs.where((j){
