@@ -386,9 +386,12 @@ class _AccueilState extends State<Accueil> {
                       fontSize:10,letterSpacing:1.05))),
               ])),
             if(section==2||section==3)
-              OutlinedButton.icon(onPressed:exporter,
+              if(wide) OutlinedButton.icon(onPressed:exporter,
                 icon:const Icon(Icons.file_download_outlined,size:18),
-                label:const Text('Exporter')),
+                label:const Text('Exporter'))
+              else IconButton(
+                tooltip:'Exporter les joueurs en CSV',onPressed:exporter,
+                icon:const Icon(Icons.file_download_outlined)),
             const SizedBox(width:12),
             Container(width:39,height:39,
               decoration:BoxDecoration(
@@ -409,7 +412,7 @@ class _AccueilState extends State<Accueil> {
                   child:SlideTransition(position:Tween<Offset>(begin:const Offset(0,.025),end:Offset.zero).animate(animation),child:child)),
                 child:KeyedSubtree(key:ValueKey(section),child:section==0?dashboard():section==1?clubPage():section==4?statistiquesPage():section==5?matchsPage():joueurPage())))))))
       ])))]),
-      floatingActionButton:section==0||section==4?null:FloatingActionButton.extended(
+      floatingActionButton:wide||section==0||section==4?null:FloatingActionButton.extended(
         onPressed:()=>section==1?editClub():section==5?editRencontre():editJoueur(),icon:const Icon(Icons.add),
         label:Text(section==1?'Nouveau club':section==5?'Nouveau match':'Nouveau joueur')));
   });
