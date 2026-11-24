@@ -31,7 +31,7 @@ class MediaImage extends StatelessWidget {
     );
 
     if (raw.isEmpty) return placeholder();
-    ImageProvider? provider;
+    late final ImageProvider provider;
     try {
       if (validImageUrl(raw)) {
         provider = NetworkImage(raw);
