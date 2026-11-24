@@ -419,66 +419,283 @@ class _AccueilState extends State<Accueil> {
     icon:Icons.inventory_2_outlined);
   Widget statistic(String number,String name,IconData icon)=>StatPanel(
     value:number,label:name,icon:icon);
-  Widget dashboard()=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    Container(width:double.infinity,padding:const EdgeInsets.all(24),
-      decoration:BoxDecoration(borderRadius:BorderRadius.circular(22),
-        gradient:const LinearGradient(colors:[navy,Color(0xFF3B4D9E)])),
-      child:Wrap(alignment:WrapAlignment.spaceBetween,runSpacing:16,spacing:15,children:[
-        const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Text('VOTRE ESPACE SPORTIF',style:TextStyle(color:Color(0xFFB7C5FF))),
-          SizedBox(height:10),Text('Gérez votre championnat\nen toute simplicité.',
-            style:TextStyle(color:Colors.white,fontSize:26,fontWeight:FontWeight.bold)),
-          Text('Clubs, joueurs et statistiques au même endroit.',style:TextStyle(color:Colors.white70))]),
-        FilledButton.icon(onPressed:()=>editJoueur(),icon:const Icon(Icons.add),
-          label:const Text('Ajouter un joueur'),
-          style:FilledButton.styleFrom(backgroundColor:Colors.white,foregroundColor:navy))
-      ])),
-    const SizedBox(height:25),heading('Statistiques','Données enregistrées localement'),
-    LayoutBuilder(builder:(c,b)=>GridView.count(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
-      crossAxisCount:b.maxWidth>740?3:b.maxWidth>430?2:1,childAspectRatio:2.1,
-      crossAxisSpacing:12,mainAxisSpacing:12,children:[
-        statistic(clubs.length.toString(),'Clubs',Icons.shield),
-        statistic(joueurs.length.toString(),'Joueurs',Icons.groups),
-        statistic(joueurs.where((j)=>j.favori).length.toString(),'Favoris',Icons.star),
-        statistic(rencontres.where((m)=>m.statut=='À venir'&&!m.date.isBefore(DateTime.now())).length.toString(),'Matchs à venir',Icons.event)
-      ])),
-    const SizedBox(height:25),heading('Effectifs par club','Cliquez sur un club pour filtrer les joueurs'),
-    if(clubs.isEmpty)empty('Aucun club') else for(final club in clubs)
-      Card(child:ListTile(onTap:()=>navigate(2,club:club.id),
-        leading:MediaImage(source:club.logo,size:44,fallback:Icons.shield),title:Text(club.libelle),
-        trailing:Text(joueurs.where((j)=>j.clubId==club.id).length.toString()+' joueurs'))),
-    const SizedBox(height:22),
-    heading('Prochaines rencontres','Calendrier de démonstration'),
-    if(rencontres.where((m)=>m.statut=='À venir'&&!m.date.isBefore(DateTime.now())).isEmpty)
-      empty('Aucun match à venir.')
-    else for(final match in rencontres.where(
-      (m)=>m.statut=='À venir'&&!m.date.isBefore(DateTime.now())).take(3))
-      Card(child:ListTile(onTap:()=>navigate(5),
-        leading:const Icon(Icons.event_available,color:blue),
-        title:Text(clubName(match.domicile)+'  VS  '+clubName(match.exterieur),
-          maxLines:2,overflow:TextOverflow.ellipsis),
-        subtitle:Text(formatDate(match.date)+' • '+formatHour(match.date)+' • '+match.lieu),
-        trailing:const Icon(Icons.chevron_right)))
-  ]);
-  Widget clubPage()=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    heading('Tous les clubs',clubs.length.toString()+' clubs enregistrés'),
-    if(clubs.isEmpty)empty('Ajoutez votre premier club')
-    else LayoutBuilder(builder:(c,b)=>GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
-      itemCount:clubs.length,gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount:b.maxWidth>850?3:b.maxWidth>510?2:1,mainAxisExtent:170,crossAxisSpacing:12,mainAxisSpacing:12),
-      itemBuilder:(c,i){final club=clubs[i];return TweenAnimationBuilder<double>(tween:Tween(begin:0,end:1),
-        duration:Duration(milliseconds:280+(i%6)*55),curve:Curves.easeOutCubic,
-        builder:(context,value,child)=>Opacity(opacity:value,
-          child:Transform.translate(offset:Offset(0,12*(1-value)),child:child)),
-        child:Card(child:InkWell(onTap:()=>navigate(2,club:club.id),
-        child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Row(children:[MediaImage(source:club.logo,size:55,fallback:Icons.shield),const Spacer(),
-            IconButton(onPressed:()=>editClub(club),tooltip:'Modifier',icon:const Icon(Icons.edit_outlined)),
-            IconButton(onPressed:()=>removeClub(club),tooltip:'Supprimer',icon:const Icon(Icons.delete_outline,color:Colors.redAccent))]),
-          const Spacer(),Text(club.libelle,maxLines:1,overflow:TextOverflow.ellipsis,
-            style:const TextStyle(color:navy,fontSize:17,fontWeight:FontWeight.bold)),
-          Text(joueurs.where((j)=>j.clubId==club.id).length.toString()+' joueurs • Voir l’effectif')
-        ])))));}))
+
+  Widget dashboard() {
+    final now=DateTime.now();
+    final upcoming=rencontres.where((m)=>
+      m.statut=='À venir'&&!m.date.isBefore(now)).take(3).toList();
+    final sorted=[...joueurs]..sort((a,b)=>b.buts.compareTo(a.buts));
+    return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Container(
+        width:double.infinity,
+        decoration:BoxDecoration(
+          borderRadius:BorderRadius.circular(28),
+          gradient:const LinearGradient(
+            begin:Alignment.topLeft,end:Alignment.bottomRight,
+            colors:[Color(0xFF172D5D),Color(0xFF13203D),Color(0xFF253C6B)]),
+        ),
+        child:Stack(children:[
+          Positioned(right:-52,top:-100,child:Container(width:240,height:240,
+            decoration:BoxDecoration(shape:BoxShape.circle,
+              border:Border.all(color:Colors.white.withValues(alpha:.08),width:37)))),
+          Positioned(right:35,bottom:-110,child:Container(width:200,height:200,
+            decoration:BoxDecoration(shape:BoxShape.circle,
+              border:Border.all(color:Colors.white.withValues(alpha:.06),width:35)))),
+          Padding(padding:const EdgeInsets.symmetric(horizontal:27,vertical:29),
+            child:Wrap(
+              alignment:WrapAlignment.spaceBetween,
+              crossAxisAlignment:WrapCrossAlignment.center,
+              spacing:25,runSpacing:22,
+              children:[
+                Column(crossAxisAlignment:CrossAxisAlignment.start,
+                  children:[
+                    const StatusPill(text:'VOTRE CENTRE DE CONTRÔLE',
+                      color:Color(0xFFFFD896),background:Color(0xFF33456C)),
+                    const SizedBox(height:18),
+                    const Text('Tout votre championnat,\nen un seul endroit.',
+                      style:TextStyle(fontSize:30,height:1.14,
+                        fontWeight:FontWeight.w900,
+                        letterSpacing:-1.2,color:Colors.white)),
+                    const SizedBox(height:11),
+                    const Text('Gérez les effectifs, suivez les performances\net préparez les rencontres.',
+                      style:TextStyle(fontSize:13,height:1.5,
+                        color:Color(0xFFB7C5DC))),
+                  ]),
+                Wrap(spacing:9,runSpacing:9,children:[
+                  FilledButton.icon(
+                    style:FilledButton.styleFrom(
+                      backgroundColor:Colors.white,
+                      foregroundColor:AppPalette.ink),
+                    onPressed:()=>editJoueur(),
+                    icon:const Icon(Icons.person_add_alt_1_outlined,size:18),
+                    label:const Text('Ajouter un joueur')),
+                  OutlinedButton.icon(
+                    style:OutlinedButton.styleFrom(
+                      foregroundColor:Colors.white,
+                      side:BorderSide(color:Colors.white.withValues(alpha:.35))),
+                    onPressed:()=>editRencontre(),
+                    icon:const Icon(Icons.event_available_outlined,size:18),
+                    label:const Text('Planifier un match')),
+                ]),
+              ],
+            )),
+        ]),
+      ),
+      const SizedBox(height:29),
+      heading('Vue d’ensemble','Les indicateurs clés de votre organisation'),
+      LayoutBuilder(builder:(context,box)=>GridView.count(
+        shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+        crossAxisCount:box.maxWidth>=1030?4:box.maxWidth>=580?2:1,
+        mainAxisSpacing:13,crossAxisSpacing:13,
+        mainAxisExtent:150,
+        children:[
+          StatPanel(value:'${clubs.length}',label:'Clubs inscrits',
+            icon:Icons.shield_outlined),
+          StatPanel(value:'${joueurs.length}',label:'Joueurs enregistrés',
+            icon:Icons.groups_2_outlined,accent:AppPalette.emerald),
+          StatPanel(value:'${joueurs.where((j)=>j.favori).length}',
+            label:'Joueurs favoris',icon:Icons.star_outline_rounded,
+            accent:AppPalette.amber),
+          StatPanel(value:'${upcoming.length}',
+            label:'Matchs à venir',icon:Icons.event_note_outlined,
+            accent:const Color(0xFF8058CF)),
+        ],
+      )),
+      const SizedBox(height:31),
+      LayoutBuilder(builder:(context,box){
+        final wide=box.maxWidth>=830;
+        final fixturePanel=Column(crossAxisAlignment:CrossAxisAlignment.start,
+          children:[
+            SectionTitle(title:'Prochaines rencontres',
+              subtitle:'Le calendrier de votre championnat',
+              action:TextButton.icon(
+                onPressed:()=>navigate(5),
+                icon:const Icon(Icons.arrow_forward_rounded,size:17),
+                label:const Text('Tout voir'))),
+            if(upcoming.isEmpty)
+              const EmptyPanel(title:'Aucun match à venir',
+                subtitle:'Planifiez une rencontre pour commencer.',
+                icon:Icons.event_busy_outlined)
+            else for(final match in upcoming)
+              Padding(padding:const EdgeInsets.only(bottom:11),
+                child:PressableCard(onTap:()=>navigate(5),
+                  child:Row(children:[
+                    Container(width:50,height:51,
+                      decoration:BoxDecoration(
+                        borderRadius:BorderRadius.circular(14),
+                        color:AppPalette.primaryLight),
+                      child:Column(mainAxisAlignment:MainAxisAlignment.center,
+                        children:[
+                          Text('${match.date.day}',style:const TextStyle(
+                            color:AppPalette.primary,fontSize:19,
+                            fontWeight:FontWeight.w900)),
+                          Text(_monthShort(match.date.month),style:const TextStyle(
+                            color:AppPalette.primary,fontSize:10,
+                            fontWeight:FontWeight.w800))
+                        ])),
+                    const SizedBox(width:12),
+                    Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+                      children:[
+                        Text('${clubName(match.domicile)}  vs  ${clubName(match.exterieur)}',
+                          maxLines:2,overflow:TextOverflow.ellipsis,
+                          style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
+                        const SizedBox(height:5),
+                        Text('${formatHour(match.date)} • ${match.lieu}',
+                          maxLines:1,overflow:TextOverflow.ellipsis,
+                          style:const TextStyle(color:AppPalette.muted,fontSize:11)),
+                      ])),
+                    const Icon(Icons.chevron_right_rounded,
+                      color:AppPalette.muted),
+                  ]))),
+          ]);
+        final leaderboard=Column(crossAxisAlignment:CrossAxisAlignment.start,
+          children:[
+            SectionTitle(title:'Meilleurs buteurs',
+              subtitle:'Performances individuelles',
+              action:TextButton.icon(
+                onPressed:()=>navigate(4),
+                icon:const Icon(Icons.arrow_forward_rounded,size:17),
+                label:const Text('Classement'))),
+            if(sorted.isEmpty)
+              const EmptyPanel(title:'Aucun joueur',
+                subtitle:'Ajoutez des joueurs pour consulter les statistiques.',
+                icon:Icons.leaderboard_outlined)
+            else for(var i=0;i<sorted.take(4).length;i++)
+              Padding(padding:const EdgeInsets.only(bottom:11),
+                child:PressableCard(onTap:()=>navigate(4),
+                  child:Row(children:[
+                    Container(width:27,alignment:Alignment.center,
+                      child:Text('${i+1}',style:const TextStyle(
+                        color:AppPalette.primary,fontSize:17,
+                        fontWeight:FontWeight.w900))),
+                    MediaImage(source:sorted[i].photo,size:43),
+                    const SizedBox(width:10),
+                    Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+                      children:[
+                        Text(sorted[i].fullName,maxLines:1,
+                          overflow:TextOverflow.ellipsis,
+                          style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),
+                        Text(clubName(sorted[i].clubId),
+                          maxLines:1,overflow:TextOverflow.ellipsis,
+                          style:const TextStyle(color:AppPalette.muted,fontSize:11)),
+                      ])),
+                    StatusPill(text:'${sorted[i].buts} BUTS'),
+                  ]))),
+          ]);
+        if(!wide) return Column(children:[fixturePanel,
+          const SizedBox(height:25),leaderboard]);
+        return Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Expanded(flex:11,child:fixturePanel),const SizedBox(width:20),
+          Expanded(flex:9,child:leaderboard),
+        ]);
+      }),
+      const SizedBox(height:30),
+      heading('Les clubs','Consultez les effectifs et gérez chaque équipe'),
+      if(clubs.isEmpty)
+        EmptyPanel(title:'Aucun club enregistré',
+          subtitle:'Ajoutez votre premier club pour démarrer.',
+          icon:Icons.shield_outlined,
+          action:FilledButton.icon(onPressed:()=>editClub(),
+            icon:const Icon(Icons.add),label:const Text('Créer un club')))
+      else LayoutBuilder(builder:(context,box)=>GridView.builder(
+        shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+        itemCount:clubs.length,
+        gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount:box.maxWidth>=900?3:box.maxWidth>=560?2:1,
+          mainAxisExtent:107,mainAxisSpacing:12,crossAxisSpacing:12),
+        itemBuilder:(context,i){
+          final club=clubs[i];
+          return PressableCard(onTap:()=>navigate(2,club:club.id),
+            child:Row(children:[
+              MediaImage(source:club.logo,size:58,fallback:Icons.shield_outlined),
+              const SizedBox(width:12),
+              Expanded(child:Column(
+                crossAxisAlignment:CrossAxisAlignment.start,
+                mainAxisAlignment:MainAxisAlignment.center,children:[
+                  Text(club.libelle,maxLines:2,
+                    overflow:TextOverflow.ellipsis,
+                    style:const TextStyle(fontWeight:FontWeight.w800)),
+                  const SizedBox(height:5),
+                  Text('${joueurs.where((j)=>j.clubId==club.id).length} joueurs',
+                    style:const TextStyle(color:AppPalette.muted,fontSize:12))
+                ])),
+              const Icon(Icons.arrow_forward_ios_rounded,size:13,
+                color:AppPalette.muted),
+            ]));
+        })),
+    ]);
+  }
+  String _monthShort(int month)=>const [
+    'JAN','FÉV','MAR','AVR','MAI','JUIN',
+    'JUIL','AOÛ','SEP','OCT','NOV','DÉC'
+  ][month-1];
+
+  Widget clubPage() => Column(
+    crossAxisAlignment:CrossAxisAlignment.start,children:[
+      SectionTitle(
+        title:'Clubs du championnat',
+        subtitle:'${clubs.length} équipes • Sélectionnez un club pour voir son effectif',
+        action:OutlinedButton.icon(
+          onPressed:()=>editClub(),icon:const Icon(Icons.add,size:18),
+          label:const Text('Créer un club'))),
+      if(clubs.isEmpty)
+        EmptyPanel(title:'Aucun club pour le moment',
+          subtitle:'Créez un club pour ajouter vos premiers joueurs.',
+          icon:Icons.shield_outlined,
+          action:FilledButton.icon(
+            onPressed:()=>editClub(),icon:const Icon(Icons.add),
+            label:const Text('Ajouter un club')))
+      else LayoutBuilder(builder:(context,box)=>GridView.builder(
+        shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+        itemCount:clubs.length,
+        gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount:box.maxWidth>=970?3:box.maxWidth>=580?2:1,
+          mainAxisExtent:210,mainAxisSpacing:16,crossAxisSpacing:16),
+        itemBuilder:(context,i){
+          final club=clubs[i];
+          final count=joueurs.where((j)=>j.clubId==club.id).length;
+          return TweenAnimationBuilder<double>(
+            tween:Tween(begin:0,end:1),
+            duration:Duration(milliseconds:250+(i%6)*45),
+            curve:Curves.easeOut,
+            builder:(context,value,child)=>Opacity(opacity:value,
+              child:Transform.translate(offset:Offset(0,10*(1-value)),
+                child:child)),
+            child:PressableCard(
+              onTap:()=>navigate(2,club:club.id),
+              child:Column(
+                crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Row(children:[
+                    MediaImage(source:club.logo,size:65,
+                      fallback:Icons.shield_outlined),
+                    const Spacer(),
+                    StatusPill(text:'${count} JOUEURS',
+                      color:AppPalette.primary,
+                      background:AppPalette.primaryLight),
+                  ]),
+                  const SizedBox(height:14),
+                  Text(club.libelle,maxLines:1,
+                    overflow:TextOverflow.ellipsis,
+                    style:const TextStyle(
+                      fontSize:17,fontWeight:FontWeight.w900,
+                      letterSpacing:-.3)),
+                  const Spacer(),
+                  Row(children:[
+                    const Icon(Icons.groups_2_outlined,size:17,
+                      color:AppPalette.muted),
+                    const SizedBox(width:6),
+                    const Expanded(child:Text('Voir les joueurs',
+                      style:TextStyle(
+                        color:AppPalette.muted,fontSize:12,
+                        fontWeight:FontWeight.w600))),
+                    CrudActions(onEdit:()=>editClub(club),
+                      onDelete:()=>removeClub(club)),
+                  ]),
+                ],
+              ),
+            ),
+          );
+        })),
   ]);
   Widget _miniMetric(String icon,String value,String label)=>Row(mainAxisSize:MainAxisSize.min,
     children:[Text(icon),const SizedBox(width:3),Text(value,style:const TextStyle(fontWeight:FontWeight.bold)),
