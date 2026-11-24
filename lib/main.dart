@@ -336,7 +336,19 @@ class _AccueilState extends State<Accueil> {
     if(clubs.isEmpty)empty('Aucun club') else for(final club in clubs)
       Card(child:ListTile(onTap:()=>navigate(2,club:club.id),
         leading:MediaImage(source:club.logo,size:44,fallback:Icons.shield),title:Text(club.libelle),
-        trailing:Text(joueurs.where((j)=>j.clubId==club.id).length.toString()+' joueurs')))
+        trailing:Text(joueurs.where((j)=>j.clubId==club.id).length.toString()+' joueurs'))),
+    const SizedBox(height:22),
+    heading('Prochaines rencontres','Calendrier de démonstration'),
+    if(rencontres.where((m)=>m.statut=='À venir'&&!m.date.isBefore(DateTime.now())).isEmpty)
+      empty('Aucun match à venir.')
+    else for(final match in rencontres.where(
+      (m)=>m.statut=='À venir'&&!m.date.isBefore(DateTime.now())).take(3))
+      Card(child:ListTile(onTap:()=>navigate(5),
+        leading:const Icon(Icons.event_available,color:blue),
+        title:Text(clubName(match.domicile)+'  VS  '+clubName(match.exterieur),
+          maxLines:2,overflow:TextOverflow.ellipsis),
+        subtitle:Text(formatDate(match.date)+' • '+formatHour(match.date)+' • '+match.lieu),
+        trailing:const Icon(Icons.chevron_right)))
   ]);
   Widget clubPage()=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     heading('Tous les clubs',clubs.length.toString()+' clubs enregistrés'),
