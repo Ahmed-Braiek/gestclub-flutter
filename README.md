@@ -123,3 +123,12 @@ flutter run -d chrome --web-port 8080
 - Espérance (historique) : https://commons.wikimedia.org/wiki/File:Logo_1987.jpg
 - Étoile du Sahel (écusson historique) : https://commons.wikimedia.org/wiki/File:Logo_historique_de_l%27Etoile_Sportive_du_Sahel_-_1925.jpg
 - Portraits fictifs : https://randomuser.me/
+
+## Interface modernisée
+Design system partagé : `lib/design_system.dart` (`AppTheme`, `AppPalette`, `SectionTitle`, `EmptyPanel`, `CrudActions`, `StatusPill`, `StatPanel`, `PressableCard`).
+
+**Palette :** bleu nuit `#101C34`, bleu action `#315BDB`, fond `#F4F7FC`, vert `#099879`, rouge suppression `#D84255`, or favori `#E6A13D`.
+
+**UX :** navigation latérale / drawer responsive, accueil avec actions rapides et prochains matchs, cartes statistiques, clubs avec logos et accès aux effectifs, joueurs avec recherche, filtres et actions lisibles, matchs avec scores, badges et actions CRUD. Les formulaires regroupent les informations et les suppressions demandent confirmation.
+
+Test sur Chrome après mise à jour : `git pull origin main`, puis `flutter pub get`, `dart run sqflite_common_ffi_web:setup`, `flutter run -d chrome --web-port 8080`.
