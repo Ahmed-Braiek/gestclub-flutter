@@ -67,7 +67,7 @@ class Repository {
         final logos=[
           'https://commons.wikimedia.org/wiki/Special:FilePath/Club_africain.logo.png',
           'https://commons.wikimedia.org/wiki/Special:FilePath/Logo_1987.jpg',
-          'https://commons.wikimedia.org/wiki/Special:FilePath/Etoile_du_Sahel.png'
+          'https://commons.wikimedia.org/wiki/Special:FilePath/Logo_historique_de_l%27Etoile_Sportive_du_Sahel_-_1925.jpg'
         ];
         final names=['Club Africain','Espérance Sportive','Étoile Sportive'];
         for(var i=0;i<names.length;i++){
@@ -97,7 +97,7 @@ class Repository {
           final logos=[
             'https://commons.wikimedia.org/wiki/Special:FilePath/Club_africain.logo.png',
             'https://commons.wikimedia.org/wiki/Special:FilePath/Logo_1987.jpg',
-            'https://commons.wikimedia.org/wiki/Special:FilePath/Etoile_du_Sahel.png'
+            'https://commons.wikimedia.org/wiki/Special:FilePath/Logo_historique_de_l%27Etoile_Sportive_du_Sahel_-_1925.jpg'
           ];
           final names=['Club Africain','Espérance Sportive','Étoile Sportive'];
           for(var i=0;i<names.length;i++){
