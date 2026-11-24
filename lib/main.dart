@@ -256,7 +256,7 @@ class _AccueilState extends State<Accueil> {
           builder:(context,value,child)=>Opacity(opacity:value,
             child:Transform.translate(offset:Offset(0,12*(1-value)),child:child)),
           child:Card(child:Padding(padding:const EdgeInsets.all(15),child:Column(children:[
-            Row(children:[CircleAvatar(radius:25,backgroundImage:hasPhoto?MemoryImage(base64Decode(file)):null,
+            Row(children:[CircleAvatar(radius:25,backgroundImage:hasPhoto?MemoryImage(base64Decode(file!)):null,
                 child:hasPhoto?null:Text(j.prenom.isEmpty?'?':j.prenom.substring(0,1))),
               const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
                 Text(j.fullName,maxLines:1,overflow:TextOverflow.ellipsis,
