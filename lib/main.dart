@@ -2,13 +2,14 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'media_image.dart';
+import 'design_system.dart';
 import 'package:image_picker/image_picker.dart';
 import 'platform_storage_native.dart' if (dart.library.js_interop) 'platform_storage_web.dart' as storage;
 import 'package:share_plus/share_plus.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-const blue=Color(0xFF425CE8), navy=Color(0xFF101B38), bg=Color(0xFFF5F7FB);
+const blue=AppPalette.primary, navy=AppPalette.navy, bg=AppPalette.canvas;
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const ChampionnatApp());
@@ -178,9 +179,7 @@ class Repository {
 class ChampionnatApp extends StatelessWidget {
   const ChampionnatApp({super.key});
   @override Widget build(BuildContext context)=>MaterialApp(debugShowCheckedModeBanner:false,title:'Championnat Pro',
-    theme:ThemeData(useMaterial3:true,scaffoldBackgroundColor:bg,colorScheme:ColorScheme.fromSeed(seedColor:blue),
-      inputDecorationTheme:InputDecorationTheme(filled:true,fillColor:Colors.white,
-        border:OutlineInputBorder(borderRadius:BorderRadius.circular(14),borderSide:BorderSide.none))),
+    theme:AppTheme.light,
     home:const Accueil());
 }
 class Accueil extends StatefulWidget {const Accueil({super.key});@override State<Accueil> createState()=>_AccueilState();}
@@ -197,10 +196,21 @@ class _AccueilState extends State<Accueil> {
   void notify(String message){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(message)));}
   String clubName(int id)=>clubs.where((c)=>c.id==id).map((c)=>c.libelle).firstOrNull??'Club inconnu';
   void navigate(int n,{int? club})=>setState((){section=n;clubFilter=club;query='';favoritesOnly=false;});
-  Future<bool> confirmation(String message) async=>await showDialog<bool>(context:context,builder:(c)=>AlertDialog(
-    title:const Text('Confirmer'),content:Text(message),actions:[
-      TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('Annuler')),
-      FilledButton(onPressed:()=>Navigator.pop(c,true),child:const Text('Supprimer'))]))??false;
+  Future<bool> confirmation(String message) async=>await showDialog<bool>(
+    context:context,builder:(c)=>AlertDialog(
+      title:const Row(children:[
+        Icon(Icons.warning_amber_rounded,color:AppPalette.danger),
+        SizedBox(width:10),Text('Confirmer la suppression')]),
+      content:Text(message),
+      actions:[
+        OutlinedButton(onPressed:()=>Navigator.pop(c,false),
+          child:const Text('Annuler')),
+        FilledButton.icon(
+          style:FilledButton.styleFrom(backgroundColor:AppPalette.danger),
+          onPressed:()=>Navigator.pop(c,true),
+          icon:const Icon(Icons.delete_outline),
+          label:const Text('Supprimer')),
+      ]))??false;
   Future<void> editClub([Club? club]) async {
     final value=await showDialog<Club>(context:context,
       builder:(c)=>ClubForm(club:club));
@@ -253,62 +263,162 @@ class _AccueilState extends State<Accueil> {
       await SharePlus.instance.share(ShareParams(files:[XFile.fromData(Uint8List.fromList(bytes),mimeType:'text/csv',name:'joueurs_championnat.csv')],fileNameOverrides:['joueurs_championnat.csv'],text:'Export des joueurs'));
     }catch(e){notify('Export CSV impossible : '+e.toString());}
   }
-  Widget navigation(bool wide){
-    final icons=[Icons.dashboard_rounded,Icons.shield_rounded,Icons.groups_rounded,Icons.star_rounded,Icons.leaderboard_rounded,Icons.event_rounded];
-    final names=['Tableau de bord','Clubs','Joueurs','Favoris','Statistiques','Matchs'];
-    return Container(width:wide?240:null,color:navy,child:SafeArea(child:Column(children:[
-      const Padding(padding:EdgeInsets.all(25),child:Row(children:[
-        Icon(Icons.emoji_events,color:Color(0xFFFFC76D),size:29),SizedBox(width:8),
-        Expanded(child:Text('CHAMPIONNAT',style:TextStyle(color:Colors.white,fontWeight:FontWeight.bold)))])),
-      for(var i=0;i<6;i++)Padding(padding:const EdgeInsets.symmetric(horizontal:10,vertical:3),
-        child:ListTile(selected:section==i,selectedTileColor:const Color(0xFF293859),
-          shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(12)),
-          leading:Icon(icons[i],color:Colors.white70),
-          title:Text(names[i],style:const TextStyle(color:Colors.white)),
-          onTap:(){navigate(i);if(!wide)Navigator.pop(context);})),
-      const Spacer(),const Padding(padding:EdgeInsets.all(20),
-        child:Text('GESTION LOCALE • SQLite',style:TextStyle(color:Colors.white54,fontSize:11)))
-    ])));
+  Widget navigation(bool wide) {
+    final icons=[
+      Icons.space_dashboard_outlined,
+      Icons.shield_outlined,
+      Icons.groups_2_outlined,
+      Icons.star_border_rounded,
+      Icons.bar_chart_rounded,
+      Icons.calendar_month_outlined,
+    ];
+    final names=[
+      'Tableau de bord','Clubs','Joueurs',
+      'Favoris','Statistiques','Matchs',
+    ];
+    return Container(
+      width:wide?255:null,
+      decoration:const BoxDecoration(
+        gradient:LinearGradient(begin:Alignment.topLeft,
+          end:Alignment.bottomRight,
+          colors:[Color(0xFF14213D),Color(0xFF0D1730)])),
+      child:SafeArea(child:Column(
+        crossAxisAlignment:CrossAxisAlignment.start,
+        children:[
+          Padding(padding:const EdgeInsets.fromLTRB(22,30,16,36),
+            child:Row(children:[
+              Container(
+                width:42,height:42,
+                decoration:BoxDecoration(
+                  borderRadius:BorderRadius.circular(14),
+                  color:const Color(0xFF294267)),
+                child:const Icon(Icons.emoji_events_rounded,
+                  color:Color(0xFFFFC36E),size:24)),
+              const SizedBox(width:12),
+              const Expanded(child:Column(
+                crossAxisAlignment:CrossAxisAlignment.start,
+                children:[
+                  Text('CHAMPIONNAT',style:TextStyle(
+                    color:Colors.white,fontSize:14,fontWeight:FontWeight.w900,
+                    letterSpacing:.9)),
+                  SizedBox(height:2),
+                  Text('SPORTS MANAGEMENT',style:TextStyle(
+                    color:Color(0xFF95A7C4),fontSize:9,
+                    fontWeight:FontWeight.w600,letterSpacing:1.2)),
+                ],
+              )),
+            ])),
+          const Padding(padding:EdgeInsets.fromLTRB(24,0,0,12),
+            child:Text('ESPACE DE TRAVAIL',style:TextStyle(
+              color:Color(0xFF8295B4),fontSize:10,
+              letterSpacing:1.6,fontWeight:FontWeight.w800))),
+          for(var i=0;i<names.length;i++)
+            Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:3),
+              child:Material(color:Colors.transparent,
+                child:ListTile(
+                  selected:section==i,
+                  selectedTileColor:const Color(0xFF30466B),
+                  shape:RoundedRectangleBorder(
+                    borderRadius:BorderRadius.circular(13)),
+                  contentPadding:const EdgeInsets.symmetric(horizontal:13),
+                  leading:Icon(icons[i],
+                    color:section==i?Colors.white:const Color(0xFF9DB0CB),
+                    size:21),
+                  title:Text(names[i],style:TextStyle(
+                    color:section==i?Colors.white:const Color(0xFFB9C7DA),
+                    fontSize:13,fontWeight:section==i?FontWeight.w800:FontWeight.w500)),
+                  trailing:section==i?Container(width:5,height:21,
+                    decoration:BoxDecoration(
+                      color:const Color(0xFFFFC36E),
+                      borderRadius:BorderRadius.circular(9))):null,
+                  onTap:(){
+                    navigate(i);
+                    if(!wide)Navigator.pop(context);
+                  },
+                ))),
+          const Spacer(),
+          Padding(padding:const EdgeInsets.all(17),
+            child:Container(padding:const EdgeInsets.all(15),
+              decoration:BoxDecoration(
+                borderRadius:BorderRadius.circular(15),
+                color:const Color(0xFF223555)),
+              child:const Row(children:[
+                Icon(Icons.cloud_off_outlined,color:Color(0xFF92E2C1),size:21),
+                SizedBox(width:10),
+                Expanded(child:Column(
+                  crossAxisAlignment:CrossAxisAlignment.start,
+                  children:[
+                    Text('Stockage local',style:TextStyle(
+                      color:Colors.white,fontSize:12,fontWeight:FontWeight.w700)),
+                    SizedBox(height:3),
+                    Text('SQLite • hors ligne',style:TextStyle(
+                      color:Color(0xFF9BAFCC),fontSize:10))
+                  ]))
+              ]))),
+        ],
+      )),
+    );
   }
   @override Widget build(BuildContext context)=>LayoutBuilder(builder:(c,layout){
     final wide=layout.maxWidth>=850;
     return Scaffold(drawer:wide?null:Drawer(child:navigation(false)),
       body:Row(children:[if(wide)navigation(true),Expanded(child:SafeArea(child:Column(children:[
-        Padding(padding:const EdgeInsets.all(16),child:Row(children:[
-          if(!wide)Builder(builder:(x)=>IconButton(icon:const Icon(Icons.menu),onPressed:()=>Scaffold.of(x).openDrawer())),
-          Expanded(child:Text(['Vue d’ensemble','Gestion des clubs','Gestion des joueurs','Joueurs favoris','Statistiques joueurs','Calendrier des matchs'][section],
-            style:const TextStyle(color:navy,fontSize:22,fontWeight:FontWeight.w800))),
-          if(section>=2)IconButton(onPressed:exporter,tooltip:'Exporter CSV',icon:const Icon(Icons.download)),
-          const CircleAvatar(child:Icon(Icons.sports_soccer))
-        ])),
+        Container(
+          padding:EdgeInsets.symmetric(horizontal:wide?32:16,vertical:17),
+          decoration:const BoxDecoration(color:Colors.white,
+            border:Border(bottom:BorderSide(color:AppPalette.border))),
+          child:Row(children:[
+            if(!wide)Builder(builder:(x)=>IconButton(
+              tooltip:'Ouvrir le menu',
+              icon:const Icon(Icons.menu_rounded),
+              onPressed:()=>Scaffold.of(x).openDrawer())),
+            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+              children:[
+                Text(['Vue d’ensemble','Gestion des clubs','Gestion des joueurs',
+                  'Joueurs favoris','Statistiques joueurs','Calendrier des matchs'][section],
+                  maxLines:1,overflow:TextOverflow.ellipsis,
+                  style:TextStyle(color:navy,fontSize:wide?21:18,
+                    letterSpacing:-.6,fontWeight:FontWeight.w900)),
+                if(wide)const Padding(
+                  padding:EdgeInsets.only(top:3),
+                  child:Text('CHAMPIONNAT  /  ESPACE DE GESTION',
+                    style:TextStyle(color:AppPalette.muted,
+                      fontSize:10,letterSpacing:1.05))),
+              ])),
+            if(section==2||section==3)
+              OutlinedButton.icon(onPressed:exporter,
+                icon:const Icon(Icons.file_download_outlined,size:18),
+                label:const Text('Exporter')),
+            const SizedBox(width:12),
+            Container(width:39,height:39,
+              decoration:BoxDecoration(
+                color:AppPalette.primaryLight,
+                borderRadius:BorderRadius.circular(12)),
+              child:const Icon(Icons.sports_soccer_rounded,
+                color:AppPalette.primary)),
+          ])),
         Expanded(child:loading?const Center(child:CircularProgressIndicator()):
           RefreshIndicator(onRefresh:reload,child:SingleChildScrollView(
             physics:const AlwaysScrollableScrollPhysics(),
-            padding:EdgeInsets.fromLTRB(wide?32:16,12,wide?32:16,100),
-            child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:1200),
+            padding:EdgeInsets.fromLTRB(wide?32:16,25,wide?32:16,110),
+            child:Align(alignment:Alignment.topCenter,
+              child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:1260),
               child:AnimatedSwitcher(duration:const Duration(milliseconds:320),
                 switchInCurve:Curves.easeOutCubic,switchOutCurve:Curves.easeInCubic,
                 transitionBuilder:(child,animation)=>FadeTransition(opacity:animation,
                   child:SlideTransition(position:Tween<Offset>(begin:const Offset(0,.025),end:Offset.zero).animate(animation),child:child)),
-                child:KeyedSubtree(key:ValueKey(section),child:section==0?dashboard():section==1?clubPage():section==4?statistiquesPage():section==5?matchsPage():joueurPage()))))))
+                child:KeyedSubtree(key:ValueKey(section),child:section==0?dashboard():section==1?clubPage():section==4?statistiquesPage():section==5?matchsPage():joueurPage())))))))
       ])))]),
       floatingActionButton:section==0||section==4?null:FloatingActionButton.extended(
         onPressed:()=>section==1?editClub():section==5?editRencontre():editJoueur(),icon:const Icon(Icons.add),
         label:Text(section==1?'Nouveau club':section==5?'Nouveau match':'Nouveau joueur')));
   });
-  Widget heading(String title,String caption)=>Padding(padding:const EdgeInsets.only(bottom:18),
-    child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Text(title,style:const TextStyle(color:navy,fontSize:22,fontWeight:FontWeight.bold)),
-      const SizedBox(height:5),Text(caption,style:const TextStyle(color:Colors.black54))]));
-  Widget empty(String message)=>Card(child:SizedBox(width:double.infinity,height:150,
-    child:Center(child:Text(message,textAlign:TextAlign.center))));
-  Widget statistic(String number,String name,IconData icon)=>Card(child:Padding(padding:const EdgeInsets.all(17),
-    child:Row(children:[CircleAvatar(child:Icon(icon)),const SizedBox(width:12),
-      Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        TweenAnimationBuilder<double>(tween:Tween(begin:0,end:double.tryParse(number)??0),duration:const Duration(milliseconds:720),
-          curve:Curves.easeOutCubic,builder:(context,value,child)=>Text(value.round().toString(),
-          style:const TextStyle(color:navy,fontSize:26,fontWeight:FontWeight.w900))),
-        Text(name,style:const TextStyle(color:Colors.black54,fontSize:12))])])));
+  Widget heading(String title,String caption)=>SectionTitle(title:title,subtitle:caption);
+  Widget empty(String message)=>EmptyPanel(
+    title:message,subtitle:'Utilisez le bouton Ajouter pour commencer.',
+    icon:Icons.inventory_2_outlined);
+  Widget statistic(String number,String name,IconData icon)=>StatPanel(
+    value:number,label:name,icon:icon);
   Widget dashboard()=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     Container(width:double.infinity,padding:const EdgeInsets.all(24),
       decoration:BoxDecoration(borderRadius:BorderRadius.circular(22),
