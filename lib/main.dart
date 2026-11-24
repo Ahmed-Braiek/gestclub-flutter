@@ -1,17 +1,15 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+import 'platform_storage_native.dart' if (dart.library.js_interop) 'platform_storage_web.dart' as storage;
 import 'package:share_plus/share_plus.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const blue=Color(0xFF425CE8), navy=Color(0xFF101B38), bg=Color(0xFFF5F7FB);
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if(Platform.isWindows||Platform.isLinux){sqfliteFfiInit();databaseFactory=databaseFactoryFfi;}
   runApp(const ChampionnatApp());
 }
 class Club {
@@ -30,9 +28,8 @@ class Repository {
   Repository._();static final instance=Repository._();Database? _db;
   Future<Database> get db async {
     if(_db!=null)return _db!;
-    final directory=await getApplicationDocumentsDirectory();
-    await directory.create(recursive:true);
-    _db=await openDatabase(path.join(directory.path,'championnat.db'),version:1,
+    final databasePath=await storage.initializeStorage();
+    _db=await openDatabase(databasePath,version:1,
       onConfigure:(db) async=>db.execute('PRAGMA foreign_keys = ON'),
       onCreate:(db,version) async {
         await db.execute('CREATE TABLE clubs (id INTEGER PRIMARY KEY AUTOINCREMENT,libelle TEXT NOT NULL COLLATE NOCASE UNIQUE)');
@@ -115,10 +112,8 @@ class _AccueilState extends State<Accueil> {
       String quote(String x)=>'"'+x.replaceAll('"','""')+'"';
       final lines=['ID;Nom;Prenom;DateNaiss;Telephone;Club;Favori'];
       for(final j in joueurs){lines.add([j.id.toString(),j.nom,j.prenom,j.naissance??'',j.tel,clubName(j.clubId),j.favori?'Oui':'Non'].map(quote).join(';'));}
-      final dir=await getTemporaryDirectory();
-      final output=File(path.join(dir.path,'joueurs_championnat.csv'));
-      await output.writeAsString('\uFEFF'+lines.join('\r\n'));
-      await SharePlus.instance.share(ShareParams(files:[XFile(output.path)],text:'Export des joueurs'));
+      final bytes=utf8.encode('\uFEFF'+lines.join('\r\n'));
+      await SharePlus.instance.share(ShareParams(files:[XFile.fromData(Uint8List.fromList(bytes),mimeType:'text/csv',name:'joueurs_championnat.csv')],fileNameOverrides:['joueurs_championnat.csv'],text:'Export des joueurs'));
     }catch(e){notify('Export CSV impossible : '+e.toString());}
   }
   Widget navigation(bool wide){
@@ -154,7 +149,11 @@ class _AccueilState extends State<Accueil> {
             physics:const AlwaysScrollableScrollPhysics(),
             padding:EdgeInsets.fromLTRB(wide?32:16,12,wide?32:16,100),
             child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:1200),
-              child:section==0?dashboard():section==1?clubPage():joueurPage()))))
+              child:AnimatedSwitcher(duration:const Duration(milliseconds:320),
+                switchInCurve:Curves.easeOutCubic,switchOutCurve:Curves.easeInCubic,
+                transitionBuilder:(child,animation)=>FadeTransition(opacity:animation,
+                  child:SlideTransition(position:Tween<Offset>(begin:const Offset(0,.025),end:Offset.zero).animate(animation),child:child)),
+                child:KeyedSubtree(key:ValueKey(section),child:section==0?dashboard():section==1?clubPage():joueurPage()))))))
       ])))]),
       floatingActionButton:section==0?null:FloatingActionButton.extended(
         onPressed:()=>section==1?editClub():editJoueur(),icon:const Icon(Icons.add),
@@ -169,7 +168,9 @@ class _AccueilState extends State<Accueil> {
   Widget statistic(String number,String name,IconData icon)=>Card(child:Padding(padding:const EdgeInsets.all(17),
     child:Row(children:[CircleAvatar(child:Icon(icon)),const SizedBox(width:12),
       Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text(number,style:const TextStyle(color:navy,fontSize:26,fontWeight:FontWeight.w900)),
+        TweenAnimationBuilder<double>(tween:Tween(begin:0,end:double.tryParse(number)??0),duration:const Duration(milliseconds:720),
+          curve:Curves.easeOutCubic,builder:(context,value,child)=>Text(value.round().toString(),
+          style:const TextStyle(color:navy,fontSize:26,fontWeight:FontWeight.w900))),
         Text(name,style:const TextStyle(color:Colors.black54,fontSize:12))])])));
   Widget dashboard()=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     Container(width:double.infinity,padding:const EdgeInsets.all(24),
@@ -205,7 +206,11 @@ class _AccueilState extends State<Accueil> {
     else LayoutBuilder(builder:(c,b)=>GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
       itemCount:clubs.length,gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount:b.maxWidth>850?3:b.maxWidth>510?2:1,mainAxisExtent:170,crossAxisSpacing:12,mainAxisSpacing:12),
-      itemBuilder:(c,i){final club=clubs[i];return Card(child:InkWell(onTap:()=>navigate(2,club:club.id),
+      itemBuilder:(c,i){final club=clubs[i];return TweenAnimationBuilder<double>(tween:Tween(begin:0,end:1),
+        duration:Duration(milliseconds:280+(i%6)*55),curve:Curves.easeOutCubic,
+        builder:(context,value,child)=>Opacity(opacity:value,
+          child:Transform.translate(offset:Offset(0,12*(1-value)),child:child)),
+        child:Card(child:InkWell(onTap:()=>navigate(2,club:club.id),
         child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           Row(children:[const CircleAvatar(child:Icon(Icons.shield)),const Spacer(),
             IconButton(onPressed:()=>editClub(club),tooltip:'Modifier',icon:const Icon(Icons.edit_outlined)),
@@ -213,7 +218,7 @@ class _AccueilState extends State<Accueil> {
           const Spacer(),Text(club.libelle,maxLines:1,overflow:TextOverflow.ellipsis,
             style:const TextStyle(color:navy,fontSize:17,fontWeight:FontWeight.bold)),
           Text(joueurs.where((j)=>j.clubId==club.id).length.toString()+' joueurs • Voir l’effectif')
-        ]))));}))
+        ])))));}))
   ]);
   Widget joueurPage(){
     final q=query.trim().toLowerCase();
@@ -245,9 +250,13 @@ class _AccueilState extends State<Accueil> {
           crossAxisCount:b.maxWidth>1050?3:b.maxWidth>650?2:1,mainAxisExtent:194,
           mainAxisSpacing:12,crossAxisSpacing:12),
         itemBuilder:(c,i){final j=filtered[i];final file=j.photo;
-          final hasPhoto=file!=null&&File(file).existsSync();
-          return Card(child:Padding(padding:const EdgeInsets.all(15),child:Column(children:[
-            Row(children:[CircleAvatar(radius:25,backgroundImage:hasPhoto?FileImage(File(file!)):null,
+          final hasPhoto=file!=null&&file.isNotEmpty;
+          return TweenAnimationBuilder<double>(tween:Tween(begin:0,end:1),
+          duration:Duration(milliseconds:280+(i%6)*55),curve:Curves.easeOutCubic,
+          builder:(context,value,child)=>Opacity(opacity:value,
+            child:Transform.translate(offset:Offset(0,12*(1-value)),child:child)),
+          child:Card(child:Padding(padding:const EdgeInsets.all(15),child:Column(children:[
+            Row(children:[CircleAvatar(radius:25,backgroundImage:hasPhoto?MemoryImage(base64Decode(file)):null,
                 child:hasPhoto?null:Text(j.prenom.isEmpty?'?':j.prenom.substring(0,1))),
               const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
                 Text(j.fullName,maxLines:1,overflow:TextOverflow.ellipsis,
@@ -255,7 +264,9 @@ class _AccueilState extends State<Accueil> {
                 Text(clubName(j.clubId),maxLines:1,overflow:TextOverflow.ellipsis,
                   style:const TextStyle(color:Colors.black54))])),
               IconButton(onPressed:()=>toggle(j),tooltip:'Favori',
-                icon:Icon(j.favori?Icons.star:Icons.star_border,color:j.favori?Colors.amber:Colors.black38))]),
+                icon:AnimatedSwitcher(duration:const Duration(milliseconds:220),
+                  transitionBuilder:(child,animation)=>ScaleTransition(scale:animation,child:child),
+                  child:Icon(j.favori?Icons.star:Icons.star_border,key:ValueKey(j.favori),color:j.favori?Colors.amber:Colors.black38)))]),
             const SizedBox(height:12),Row(children:[const Icon(Icons.phone_outlined,size:16),
               const SizedBox(width:8),Text(j.tel)]),
             const Spacer(),const Divider(),
@@ -265,7 +276,7 @@ class _AccueilState extends State<Accueil> {
               IconButton(onPressed:()=>removeJoueur(j),tooltip:'Supprimer',
                 icon:const Icon(Icons.delete_outline,color:Colors.redAccent))
             ])
-          ])));
+          ]))));
         }))
     ]);
   }
@@ -290,22 +301,18 @@ class _JoueurFormState extends State<JoueurForm> {
       final selected=await ImagePicker().pickImage(source:ImageSource.gallery,imageQuality:75,maxWidth:1000);
       if(selected==null)return;
       setState(()=>photoLoading=true);
-      final dir=await getApplicationDocumentsDirectory();
-      final folder=Directory(path.join(dir.path,'photos'));await folder.create(recursive:true);
-      final ext=path.extension(selected.path);final dest=path.join(folder.path,
-        'joueur_'+DateTime.now().microsecondsSinceEpoch.toString()+(ext.isEmpty?'.jpg':ext));
-      await File(selected.path).copy(dest);
-      if(mounted)setState(()=>photo=dest);
+      final bytes=await selected.readAsBytes();
+      if(mounted)setState(()=>photo=base64Encode(bytes));
     }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Photo impossible : '+e.toString())));}
     finally{if(mounted)setState(()=>photoLoading=false);}
   }
   String? requiredField(String? s)=>s==null||s.trim().isEmpty?'Champ obligatoire':null;
   @override Widget build(BuildContext context){
-    final hasPhoto=photo!=null&&File(photo!).existsSync();
+    final hasPhoto=photo!=null&&photo!.isNotEmpty;
     return AlertDialog(title:Text(widget.joueur==null?'Ajouter un joueur':'Modifier un joueur'),
       content:SizedBox(width:430,child:SingleChildScrollView(child:Form(key:form,
         child:Column(mainAxisSize:MainAxisSize.min,children:[
-          CircleAvatar(radius:34,backgroundImage:hasPhoto?FileImage(File(photo!)):null,
+          CircleAvatar(radius:34,backgroundImage:hasPhoto?MemoryImage(base64Decode(photo!)):null,
             child:hasPhoto?null:const Icon(Icons.person,size:32)),
           TextButton.icon(onPressed:photoLoading?null:choosePhoto,
             icon:const Icon(Icons.photo_camera_outlined),label:const Text('Choisir une photo')),
