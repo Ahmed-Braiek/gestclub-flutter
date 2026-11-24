@@ -811,68 +811,157 @@ class _AccueilState extends State<Accueil> {
     ]);
   }
 
+
   Widget joueurPage(){
     final q=query.trim().toLowerCase();
     final filtered=joueurs.where((j){
       if(section==3&&!j.favori)return false;
       if(favoritesOnly&&!j.favori)return false;
       if(clubFilter!=null&&clubFilter!=j.clubId)return false;
-      return q.isEmpty||[j.nom,j.prenom,j.tel,clubName(j.clubId)].any((v)=>v.toLowerCase().contains(q));
+      return q.isEmpty||[j.nom,j.prenom,j.tel,clubName(j.clubId)]
+        .any((v)=>v.toLowerCase().contains(q));
     }).toList();
     return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      heading(section==3?'Joueurs favoris':'Tous les joueurs',filtered.length.toString()+' résultat(s)'),
-      Wrap(spacing:10,runSpacing:10,children:[
-        SizedBox(width:310,child:TextField(onChanged:(v)=>setState(()=>query=v),
-          decoration:const InputDecoration(prefixIcon:Icon(Icons.search),hintText:'Nom, prénom, téléphone ou club'))),
-        if(section==2)SizedBox(width:210,child:DropdownButtonFormField<int?>(
-          key:ValueKey(clubFilter),initialValue:clubFilter,isExpanded:true,
-          decoration:const InputDecoration(labelText:'Filtrer par club'),
-          items:[const DropdownMenuItem<int?>(value:null,child:Text('Tous les clubs')),
-            ...clubs.map((c)=>DropdownMenuItem<int?>(value:c.id,child:Text(c.libelle,overflow:TextOverflow.ellipsis)))],
-          onChanged:(v)=>setState(()=>clubFilter=v))),
-        if(section==2)FilterChip(label:const Text('Favoris uniquement'),selected:favoritesOnly,
-          onSelected:(v)=>setState(()=>favoritesOnly=v)),
-        OutlinedButton.icon(onPressed:exporter,icon:const Icon(Icons.download),label:const Text('Exporter CSV'))
-      ]),
-      const SizedBox(height:18),
-      if(filtered.isEmpty)empty('Aucun joueur trouvé')
-      else LayoutBuilder(builder:(c,b)=>GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
-        itemCount:filtered.length,gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount:b.maxWidth>1050?3:b.maxWidth>650?2:1,mainAxisExtent:214,
-          mainAxisSpacing:12,crossAxisSpacing:12),
-        itemBuilder:(c,i){final j=filtered[i];final file=j.photo;
-          return TweenAnimationBuilder<double>(tween:Tween(begin:0,end:1),
-          duration:Duration(milliseconds:280+(i%6)*55),curve:Curves.easeOutCubic,
-          builder:(context,value,child)=>Opacity(opacity:value,
-            child:Transform.translate(offset:Offset(0,12*(1-value)),child:child)),
-          child:Card(child:Padding(padding:const EdgeInsets.all(15),child:Column(children:[
-            Row(children:[MediaImage(source:file,size:50,fallback:Icons.person_outline),
-              const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-                Text(j.fullName,maxLines:1,overflow:TextOverflow.ellipsis,
-                  style:const TextStyle(color:navy,fontSize:16,fontWeight:FontWeight.bold)),
-                Text(clubName(j.clubId),maxLines:1,overflow:TextOverflow.ellipsis,
-                  style:const TextStyle(color:Colors.black54))])),
-              IconButton(onPressed:()=>toggle(j),tooltip:'Favori',
-                icon:AnimatedSwitcher(duration:const Duration(milliseconds:220),
-                  transitionBuilder:(child,animation)=>ScaleTransition(scale:animation,child:child),
-                  child:Icon(j.favori?Icons.star:Icons.star_border,key:ValueKey(j.favori),color:j.favori?Colors.amber:Colors.black38)))]),
-            const SizedBox(height:8),Row(children:[
-              _miniMetric('⚽',j.buts.toString(),'Buts'),
-              const SizedBox(width:12),_miniMetric('↗',j.passes.toString(),'Passes'),
-              const SizedBox(width:12),_miniMetric('◷',j.matchs.toString(),'Matchs')]),
-            const SizedBox(height:8),Row(children:[const Icon(Icons.phone_outlined,size:16),
-              const SizedBox(width:8),Text(j.tel)]),
-            const Spacer(),const Divider(),
-            Row(mainAxisAlignment:MainAxisAlignment.end,children:[
-              TextButton.icon(onPressed:()=>appeler(j),icon:const Icon(Icons.call,size:16),label:const Text('Appeler')),
-              IconButton(onPressed:()=>editJoueur(j),tooltip:'Modifier',icon:const Icon(Icons.edit_outlined)),
-              IconButton(onPressed:()=>removeJoueur(j),tooltip:'Supprimer',
-                icon:const Icon(Icons.delete_outline,color:Colors.redAccent))
-            ])
-          ]))));
-        }))
+      SectionTitle(
+        title:section==3?'Vos joueurs favoris':'Gestion des joueurs',
+        subtitle:'${filtered.length} joueur(s) • Annuaire et performances',
+        action:OutlinedButton.icon(onPressed:()=>editJoueur(),
+          icon:const Icon(Icons.person_add_alt_1_outlined,size:18),
+          label:const Text('Ajouter'))),
+      Container(
+        padding:const EdgeInsets.all(14),
+        decoration:BoxDecoration(
+          color:Colors.white,borderRadius:BorderRadius.circular(19),
+          border:Border.all(color:AppPalette.border)),
+        child:Wrap(spacing:10,runSpacing:10,
+          crossAxisAlignment:WrapCrossAlignment.center,children:[
+          SizedBox(width:300,child:TextField(
+            onChanged:(v)=>setState(()=>query=v),
+            decoration:const InputDecoration(
+              prefixIcon:Icon(Icons.search_rounded),
+              hintText:'Chercher un joueur, club ou numéro'))),
+          if(section==2)SizedBox(width:210,
+            child:DropdownButtonFormField<int?>(
+              key:ValueKey(clubFilter),initialValue:clubFilter,isExpanded:true,
+              decoration:const InputDecoration(
+                prefixIcon:Icon(Icons.filter_alt_outlined),
+                labelText:'Filtrer par club'),
+              items:[
+                const DropdownMenuItem<int?>(value:null,child:Text('Tous les clubs')),
+                ...clubs.map((c)=>DropdownMenuItem<int?>(
+                  value:c.id,child:Text(c.libelle,
+                  overflow:TextOverflow.ellipsis))),
+              ],
+              onChanged:(v)=>setState(()=>clubFilter=v))),
+          if(section==2)FilterChip(
+            label:const Text('Favoris'),
+            avatar:const Icon(Icons.star_border_rounded,size:17),
+            selected:favoritesOnly,
+            onSelected:(v)=>setState(()=>favoritesOnly=v)),
+          OutlinedButton.icon(
+            onPressed:exporter,
+            icon:const Icon(Icons.file_download_outlined,size:18),
+            label:const Text('Exporter CSV')),
+        ]),
+      ),
+      const SizedBox(height:20),
+      if(filtered.isEmpty)
+        EmptyPanel(title:'Aucun joueur trouvé',
+          subtitle:'Essayez un autre filtre ou ajoutez un joueur.',
+          icon:Icons.person_search_outlined,
+          action:FilledButton.icon(
+            onPressed:()=>editJoueur(),
+            icon:const Icon(Icons.add),
+            label:const Text('Ajouter un joueur')))
+      else LayoutBuilder(builder:(context,box)=>GridView.builder(
+        shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+        itemCount:filtered.length,
+        gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount:box.maxWidth>=1080?3:box.maxWidth>=680?2:1,
+          mainAxisExtent:245,mainAxisSpacing:14,crossAxisSpacing:14),
+        itemBuilder:(context,i){
+          final player=filtered[i];
+          return TweenAnimationBuilder<double>(
+            tween:Tween(begin:0,end:1),
+            duration:Duration(milliseconds:260+(i%5)*50),
+            curve:Curves.easeOutCubic,
+            builder:(context,value,child)=>Opacity(opacity:value,
+              child:Transform.translate(
+                offset:Offset(0,12*(1-value)),child:child)),
+            child:PressableCard(child:Column(children:[
+              Row(children:[
+                MediaImage(source:player.photo,size:59),
+                const SizedBox(width:12),
+                Expanded(child:Column(
+                  crossAxisAlignment:CrossAxisAlignment.start,children:[
+                    Text(player.fullName,maxLines:1,
+                      overflow:TextOverflow.ellipsis,
+                      style:const TextStyle(
+                        fontSize:16,fontWeight:FontWeight.w900)),
+                    const SizedBox(height:6),
+                    Text(clubName(player.clubId),
+                      maxLines:1,overflow:TextOverflow.ellipsis,
+                      style:const TextStyle(
+                        color:AppPalette.muted,fontSize:12)),
+                  ])),
+                IconButton(
+                  tooltip:player.favori?'Retirer des favoris':'Ajouter aux favoris',
+                  onPressed:()=>toggle(player),
+                  icon:AnimatedSwitcher(
+                    duration:const Duration(milliseconds:200),
+                    transitionBuilder:(child,animation)=>
+                      ScaleTransition(scale:animation,child:child),
+                    child:Icon(
+                      player.favori?Icons.star_rounded:Icons.star_border_rounded,
+                      key:ValueKey(player.favori),
+                      color:player.favori?AppPalette.amber:AppPalette.muted)),
+                ),
+              ]),
+              const SizedBox(height:15),
+              Row(children:[
+                Expanded(child:_playerStatTile(
+                  Icons.sports_soccer_rounded,'${player.buts}','Buts')),
+                const SizedBox(width:7),
+                Expanded(child:_playerStatTile(
+                  Icons.assistant_direction_rounded,'${player.passes}','Passes')),
+                const SizedBox(width:7),
+                Expanded(child:_playerStatTile(
+                  Icons.event_available_outlined,'${player.matchs}','Matchs')),
+              ]),
+              const Spacer(),
+              const Divider(),
+              Row(children:[
+                Expanded(child:TextButton.icon(
+                  onPressed:()=>appeler(player),
+                  icon:const Icon(Icons.call_outlined,size:18),
+                  label:const Text('Appeler'))),
+                CrudActions(
+                  onEdit:()=>editJoueur(player),
+                  onDelete:()=>removeJoueur(player)),
+              ]),
+            ])),
+          );
+        })),
     ]);
   }
+  Widget _playerStatTile(IconData icon,String value,String label)=>Container(
+    padding:const EdgeInsets.symmetric(horizontal:6,vertical:10),
+    decoration:BoxDecoration(
+      color:AppPalette.canvas,
+      borderRadius:BorderRadius.circular(12)),
+    child:Column(children:[
+      Row(mainAxisAlignment:MainAxisAlignment.center,children:[
+        Icon(icon,size:15,color:AppPalette.primary),
+        const SizedBox(width:5),
+        Flexible(child:Text(value,style:const TextStyle(
+          fontWeight:FontWeight.w900,color:AppPalette.ink))),
+      ]),
+      const SizedBox(height:4),
+      Text(label,style:const TextStyle(
+        fontSize:10,color:AppPalette.muted)),
+    ]),
+  );
+
 }
 class JoueurForm extends StatefulWidget {
   final Joueur? joueur;final List<Club> clubs;
