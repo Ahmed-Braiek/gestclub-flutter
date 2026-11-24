@@ -107,7 +107,7 @@ Le setup génère `web/sqlite3.wasm` et `web/sqflite_sw.js`, nécessaires au nav
 - La migration SQLite de version 1 vers version 2 se fait automatiquement, **sans supprimer la base**. La suppression d'un club lié à des joueurs ou rencontres reste bloquée.
 - Les images importées sont compressées et stockées en Base64 dans SQLite, max. 1,5 Mo chacune. Les URL nécessitent un accès Internet, et sur Chrome certains hôtes peuvent refuser le chargement des images.
 - **Attention : DEMO uniquement.** Les clubs sont réels mais les joueurs, statistiques et matchs sont fictifs. Les portraits de Random User illustrent des profils de démonstration et ne représentent pas les personnes nommées.
-- Les logos du Club Africain, l'ancien emblème de l'Espérance et le drapeau illustratif de l'Étoile du Sahel sont chargés depuis Wikimedia Commons ; ils ne sont pas tous les écussons actuels.
+- Les logos du Club Africain, l'ancien emblème de l'Espérance et le écusson historique de l'Étoile du Sahel sont chargés depuis Wikimedia Commons ; ils ne sont pas tous les écussons actuels.
 
 ### Mise à jour de votre projet déjà installé
 Dans le dossier existant :
@@ -121,5 +121,5 @@ flutter run -d chrome --web-port 8080
 ### Sources des illustrations de démonstration
 - Club Africain : https://commons.wikimedia.org/wiki/File:Club_africain.logo.png
 - Espérance (historique) : https://commons.wikimedia.org/wiki/File:Logo_1987.jpg
-- Étoile du Sahel (drapeau fantaisie) : https://commons.wikimedia.org/wiki/File:Etoile_du_Sahel.png
+- Étoile du Sahel (écusson historique) : https://commons.wikimedia.org/wiki/File:Logo_historique_de_l%27Etoile_Sportive_du_Sahel_-_1925.jpg
 - Portraits fictifs : https://randomuser.me/
