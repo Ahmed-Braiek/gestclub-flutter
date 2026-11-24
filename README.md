@@ -97,3 +97,29 @@ Le setup génère `web/sqlite3.wasm` et `web/sqflite_sw.js`, nécessaires au nav
 - Apparition progressive des cartes clubs/joueurs.
 - Étoiles favorites animées au changement d'état.
 - Navigation adaptative : drawer étroit / sidebar large.
+
+
+## Version 2: images, statistiques et calendrier
+- CRUD Clubs : ajouter/remplacer le logo via un lien HTTP(S) ou importer un fichier image.
+- CRUD Joueurs : photos via URL/fichier ; buts, passes décisives, apparitions, cartons jaunes.
+- Nouveau menu **Statistiques** : tableau des meilleurs buteurs, graphique des buts, synthèse des performances.
+- Nouveau menu **Matchs** : créer, modifier ou supprimer une rencontre avec deux clubs, date, heure, lieu, statut, score lorsque terminée.
+- La migration SQLite de version 1 vers version 2 se fait automatiquement, **sans supprimer la base**. La suppression d'un club lié à des joueurs ou rencontres reste bloquée.
+- Les images importées sont compressées et stockées en Base64 dans SQLite, max. 1,5 Mo chacune. Les URL nécessitent un accès Internet, et sur Chrome certains hôtes peuvent refuser le chargement des images.
+- **Attention : DEMO uniquement.** Les clubs sont réels mais les joueurs, statistiques et matchs sont fictifs. Les portraits de Random User illustrent des profils de démonstration et ne représentent pas les personnes nommées.
+- Les logos du Club Africain, l'ancien emblème de l'Espérance et le drapeau illustratif de l'Étoile du Sahel sont chargés depuis Wikimedia Commons ; ils ne sont pas tous les écussons actuels.
+
+### Mise à jour de votre projet déjà installé
+Dans le dossier existant :
+```powershell
+git pull origin main
+flutter pub get
+dart run sqflite_common_ffi_web:setup
+flutter run -d chrome --web-port 8080
+```
+
+### Sources des illustrations de démonstration
+- Club Africain : https://commons.wikimedia.org/wiki/File:Club_africain.logo.png
+- Espérance (historique) : https://commons.wikimedia.org/wiki/File:Logo_1987.jpg
+- Étoile du Sahel (drapeau fantaisie) : https://commons.wikimedia.org/wiki/File:Etoile_du_Sahel.png
+- Portraits fictifs : https://randomuser.me/
