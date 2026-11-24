@@ -15,9 +15,9 @@ String commonsPhoto(String filename) =>
 const demoClubs=<DemoClub>[
  DemoClub("Club Africain","https://commons.wikimedia.org/wiki/Special:FilePath/Logo_Club_Africain_officiel.png?width=300",0xFFC63143),
  DemoClub("Espérance Sportive","https://commons.wikimedia.org/wiki/Special:FilePath/Logo_1987.jpg?width=300",0xFFE3A416),
- DemoClub("Étoile Sportive","https://commons.wikimedia.org/wiki/Special:FilePath/%C3%89toile_Sahel.jpg?width=300",0xFFC02733),
+ DemoClub("Étoile Sportive","https://commons.wikimedia.org/wiki/Special:FilePath/Logo_historique_de_l%27Etoile_Sportive_du_Sahel_-_1925.jpg?width=300",0xFFC02733),
  DemoClub("CS Sfaxien","https://commons.wikimedia.org/wiki/Special:FilePath/Logo_Club_Sportif_Sfaxien.png?width=300",0xFF252C3B),
- DemoClub("US Monastir","https://www.esperance-de-tunis.net/taredt/uploads/2017/08/%D8%A7%D9%84%D8%A7%D8%AA%D8%AD%D8%A7%D8%AF_%D8%A7%D9%84%D8%B1%D9%8A%D8%A7%D8%B6%D9%8A_%D8%A7%D9%84%D9%85%D9%86%D8%B3%D8%AA%D9%8A%D8%B1%D9%8A.svg.png",0xFF1761CE),
+ DemoClub("US Monastir","https://commons.wikimedia.org/wiki/Special:FilePath/Usm_logo_1923.png?width=300",0xFF1761CE),
 ];
 const demoPlayers=<DemoPlayer>[
  // Club Africain
