@@ -131,7 +131,7 @@ class _AccueilState extends State<Accueil> {
           onTap:(){navigate(i);if(!wide)Navigator.pop(context);})),
       const Spacer(),const Padding(padding:EdgeInsets.all(20),
         child:Text('GESTION LOCALE • SQLite',style:TextStyle(color:Colors.white54,fontSize:11)))
-    ]))));
+    ])));
   }
   @override Widget build(BuildContext context)=>LayoutBuilder(builder:(c,layout){
     final wide=layout.maxWidth>=850;
