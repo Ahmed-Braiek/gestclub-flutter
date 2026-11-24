@@ -19,7 +19,7 @@ Ce dossier contient les sources. Générez les fichiers plateforme Flutter manqu
 ```powershell
 git clone https://github.com/Ahmed-Braiek/gestclub-flutter.git
 cd gestclub-flutter
-flutter create --platforms=android,windows .
+flutter create --platforms=android,windows,web .
 flutter pub get
 flutter devices
 flutter run
@@ -29,7 +29,7 @@ Pour la première démonstration, **préférez un téléphone Android** connect�
 
 Pour Windows Desktop : activer **Developer Mode** dans Windows si Flutter le demande, installer les outils C++ de Visual Studio si absents, puis `flutter run -d windows`.
 
-SQLite **ne nécessite aucun serveur**. Le fichier `championnat.db` est créé automatiquement dans le dossier Documents de l'application au premier démarrage. Sur Windows `sqflite_common_ffi` est utilisé, sur Android `sqflite`. Chrome/web n'est pas ciblé.
+SQLite **ne nécessite aucun serveur**. Le fichier `championnat.db` est créé automatiquement dans le dossier Documents de l'application au premier démarrage. Sur Windows `sqflite_common_ffi` est utilisé, sur Android `sqflite`, sur Chrome SQLite WebAssembly + IndexedDB.
 
 ## Architecture
 - `Club`, `Player` : modèles.
@@ -76,3 +76,24 @@ Dans GitHub, ouvrir **Actions → Flutter CI** pour consulter le résultat. Le f
 
 ### Points à retenir
 La base et les photos sont **stockées sur l'appareil**. Elles ne sont pas synchronisées entre Windows et Android. Les données de démonstration sont insérées uniquement lors de la création initiale de la base. L'application est conçue pour Android et Windows, et non pour Chrome / Flutter Web.
+
+## Lancer sur Chrome (SQLite persistante dans le navigateur)
+Depuis PowerShell, dans le dossier du projet :
+
+```powershell
+flutter create --platforms=android,windows,web --project-name championnat_pro .
+flutter pub get
+dart run sqflite_common_ffi_web:setup
+flutter run -d chrome --web-port 8080
+```
+
+Le setup génère `web/sqlite3.wasm` et `web/sqflite_sw.js`, nécessaires au navigateur. La base SQLite est persistée dans IndexedDB pour **la même origine** (ici `localhost:8080`). Ne changez pas de port à chaque exécution si vous voulez retrouver les mêmes données. Pour livrer le site : `flutter build web` après le setup.
+
+> Chrome ne peut pas ouvrir la base native Android/Windows ; chaque plateforme a sa propre base locale. Photos stockées dans SQLite en Base64 pour fonctionner sur toutes les plateformes. L'appel téléphonique dépend de l'appareil ; il n'est généralement pas disponible dans Chrome sur PC. Les fichiers de galerie et le partage CSV utilisent des interfaces compatibles Web.
+
+## Animations et design
+- Transition fondu + léger glissement entre les écrans (320 ms).
+- Compteurs de statistiques animés (720 ms).
+- Apparition progressive des cartes clubs/joueurs.
+- Étoiles favorites animées au changement d'état.
+- Navigation adaptative : drawer étroit / sidebar large.
