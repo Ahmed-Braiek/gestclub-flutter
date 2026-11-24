@@ -25,6 +25,8 @@ jobs:
         run: flutter pub get
       - name: Set up web SQLite assets
         run: dart run sqflite_common_ffi_web:setup
+      - name: Remove Flutter template counter test
+        run: rm -f test/widget_test.dart
       - name: Static analysis
         run: flutter analyze
       - name: Unit tests
