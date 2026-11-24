@@ -247,7 +247,7 @@ class _AccueilState extends State<Accueil> {
         itemBuilder:(c,i){final j=filtered[i];final file=j.photo;
           final hasPhoto=file!=null&&File(file).existsSync();
           return Card(child:Padding(padding:const EdgeInsets.all(15),child:Column(children:[
-            Row(children:[CircleAvatar(radius:25,backgroundImage:hasPhoto?FileImage(File(file)):null,
+            Row(children:[CircleAvatar(radius:25,backgroundImage:hasPhoto?FileImage(File(file!)):null,
                 child:hasPhoto?null:Text(j.prenom.isEmpty?'?':j.prenom.substring(0,1))),
               const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
                 Text(j.fullName,maxLines:1,overflow:TextOverflow.ellipsis,
