@@ -759,58 +759,107 @@ class _AccueilState extends State<Accueil> {
     ]);
   }
 
+
   Widget matchsPage() {
     final now=DateTime.now();
-    final prochains=rencontres.where((m)=>m.statut=='À venir'&&!m.date.isBefore(now)).toList();
+    final upcoming=rencontres.where((m)=>
+      m.statut=='À venir'&&!m.date.isBefore(now)).length;
     return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      heading('Calendrier des rencontres',
-        '${prochains.length} rencontre(s) à venir • calendrier fictif pour la démonstration.'),
-      if(rencontres.isEmpty)empty('Aucun match planifié. Créez votre première rencontre.')
-      else for(final m in rencontres)
-        Card(child:Padding(padding:const EdgeInsets.all(18),child:Column(children:[
-          Wrap(spacing:8,runSpacing:4,
-            crossAxisAlignment:WrapCrossAlignment.center,children:[
-            Icon(m.statut=='Terminé'?Icons.verified:Icons.event,color:blue,size:18),
-            Text('${formatDate(m.date)} • ${formatHour(m.date)}',
-              style:const TextStyle(fontWeight:FontWeight.w700)),
-            Chip(label:Text(m.statut)),
-            IconButton(icon:const Icon(Icons.edit_outlined),
-              tooltip:'Modifier le match',onPressed:()=>editRencontre(m)),
-            IconButton(icon:const Icon(Icons.delete_outline,color:Colors.redAccent),
-              tooltip:'Supprimer le match',onPressed:()=>removeRencontre(m)),
-          ]),
-          const SizedBox(height:12),
-          Row(children:[
-            Expanded(child:Column(children:[
-              MediaImage(source:clubs.where((c)=>c.id==m.domicile)
-                .map((c)=>c.logo).firstOrNull,size:55,fallback:Icons.shield_outlined),
-              const SizedBox(height:7),
-              Text(clubName(m.domicile),maxLines:2,textAlign:TextAlign.center,
-                style:const TextStyle(fontWeight:FontWeight.bold))
+      SectionTitle(
+        title:'Calendrier du championnat',
+        subtitle:'${upcoming} rencontre(s) à venir • Dates et lieux modifiables',
+        action:OutlinedButton.icon(
+          onPressed:()=>editRencontre(),
+          icon:const Icon(Icons.event_available_outlined,size:18),
+          label:const Text('Planifier'))),
+      if(rencontres.isEmpty)
+        EmptyPanel(title:'Aucun match planifié',
+          subtitle:'Planifiez la première rencontre de votre championnat.',
+          icon:Icons.event_busy_outlined,
+          action:FilledButton.icon(
+            onPressed:()=>editRencontre(),
+            icon:const Icon(Icons.add),
+            label:const Text('Nouveau match')))
+      else LayoutBuilder(builder:(context,box)=>GridView.builder(
+        shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+        itemCount:rencontres.length,
+        gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount:box.maxWidth>=900?2:1,
+          mainAxisExtent:252,mainAxisSpacing:15,crossAxisSpacing:15),
+        itemBuilder:(context,i){
+          final match=rencontres[i];
+          final home=clubs.where((c)=>c.id==match.domicile).firstOrNull;
+          final away=clubs.where((c)=>c.id==match.exterieur).firstOrNull;
+          final isFinished=match.statut=='Terminé';
+          final statusColor=isFinished?AppPalette.muted:
+            match.statut=='Reporté'?AppPalette.danger:AppPalette.emerald;
+          final statusBg=isFinished?AppPalette.canvas:
+            match.statut=='Reporté'?AppPalette.dangerLight:AppPalette.emeraldLight;
+          return PressableCard(child:Column(children:[
+            Row(children:[
+              const Icon(Icons.calendar_today_outlined,size:17,
+                color:AppPalette.muted),
+              const SizedBox(width:8),
+              Expanded(child:Text(
+                '${formatDate(match.date)}  •  ${formatHour(match.date)}',
+                maxLines:1,overflow:TextOverflow.ellipsis,
+                style:const TextStyle(
+                  fontWeight:FontWeight.w800,fontSize:12))),
+              StatusPill(text:match.statut.toUpperCase(),
+                color:statusColor,background:statusBg),
+            ]),
+            const SizedBox(height:15),
+            Expanded(child:Row(children:[
+              Expanded(child:Column(
+                mainAxisAlignment:MainAxisAlignment.center,children:[
+                  MediaImage(source:home?.logo,size:57,
+                    fallback:Icons.shield_outlined),
+                  const SizedBox(height:9),
+                  Text(home?.libelle??'Club',
+                    maxLines:2,overflow:TextOverflow.ellipsis,
+                    textAlign:TextAlign.center,
+                    style:const TextStyle(
+                      fontSize:12,fontWeight:FontWeight.w800)),
+                ])),
+              Container(
+                padding:const EdgeInsets.symmetric(horizontal:13,vertical:10),
+                decoration:BoxDecoration(
+                  color:AppPalette.primaryLight,
+                  borderRadius:BorderRadius.circular(12)),
+                child:Text(isFinished
+                  ? '${match.scoreDomicile??0} : ${match.scoreExterieur??0}'
+                  : 'VS',
+                  style:const TextStyle(color:AppPalette.primary,
+                    fontSize:20,fontWeight:FontWeight.w900)),
+              ),
+              Expanded(child:Column(
+                mainAxisAlignment:MainAxisAlignment.center,children:[
+                  MediaImage(source:away?.logo,size:57,
+                    fallback:Icons.shield_outlined),
+                  const SizedBox(height:9),
+                  Text(away?.libelle??'Club',
+                    maxLines:2,overflow:TextOverflow.ellipsis,
+                    textAlign:TextAlign.center,
+                    style:const TextStyle(
+                      fontSize:12,fontWeight:FontWeight.w800)),
+                ])),
             ])),
-            Padding(padding:const EdgeInsets.symmetric(horizontal:12),
-              child:Text(m.statut=='Terminé'
-                ? '${m.scoreDomicile??0} : ${m.scoreExterieur??0}' : 'VS',
-                style:const TextStyle(fontSize:24,color:navy,fontWeight:FontWeight.w900))),
-            Expanded(child:Column(children:[
-              MediaImage(source:clubs.where((c)=>c.id==m.exterieur)
-                .map((c)=>c.logo).firstOrNull,size:55,fallback:Icons.shield_outlined),
-              const SizedBox(height:7),
-              Text(clubName(m.exterieur),maxLines:2,textAlign:TextAlign.center,
-                style:const TextStyle(fontWeight:FontWeight.bold))
-            ])),
-          ]),
-          const SizedBox(height:14),
-          Row(mainAxisAlignment:MainAxisAlignment.center,children:[
-            const Icon(Icons.place_outlined,size:17,color:Colors.black54),
-            const SizedBox(width:6),
-            Flexible(child:Text(m.lieu,textAlign:TextAlign.center,
-              style:const TextStyle(color:Colors.black54))),
-          ])
-        ])))
+            const Divider(),
+            Row(children:[
+              const Icon(Icons.location_on_outlined,
+                size:17,color:AppPalette.muted),
+              const SizedBox(width:6),
+              Expanded(child:Text(match.lieu,
+                maxLines:1,overflow:TextOverflow.ellipsis,
+                style:const TextStyle(
+                  color:AppPalette.muted,fontSize:11))),
+              CrudActions(onEdit:()=>editRencontre(match),
+                onDelete:()=>removeRencontre(match)),
+            ]),
+          ]));
+        })),
     ]);
   }
-
 
   Widget joueurPage(){
     final q=query.trim().toLowerCase();
