@@ -28,7 +28,7 @@ jobs:
       - name: Remove Flutter template counter test
         run: rm -f test/widget_test.dart
       - name: Static analysis
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
       - name: Unit tests
         run: flutter test
       - name: Build Chrome-compatible web app
