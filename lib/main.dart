@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'media_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'platform_storage_native.dart' if (dart.library.js_interop) 'platform_storage_web.dart' as storage;
 import 'package:share_plus/share_plus.dart';
@@ -13,15 +14,43 @@ Future<void> main() async {
   runApp(const ChampionnatApp());
 }
 class Club {
-  final int? id;final String libelle;
-  const Club(this.libelle,{this.id});
-  factory Club.from(Map<String,Object?> row)=>Club(row['libelle'] as String,id:row['id'] as int);
+  final int? id;
+  final String libelle;
+  final String? logo;
+  const Club(this.libelle,{this.id,this.logo});
+  factory Club.from(Map<String,Object?> row)=>Club(
+    row['libelle'] as String,id:row['id'] as int,logo:row['logo'] as String?);
+}
+class Rencontre {
+  final int? id;
+  final int domicile,exterieur;
+  final DateTime date;
+  final String lieu,statut;
+  final int? scoreDomicile,scoreExterieur;
+  const Rencontre({this.id,required this.domicile,required this.exterieur,
+    required this.date,required this.lieu,this.statut='À venir',
+    this.scoreDomicile,this.scoreExterieur});
+  factory Rencontre.from(Map<String,Object?> r)=>Rencontre(id:r['id'] as int,
+    domicile:r['domicile'] as int,exterieur:r['exterieur'] as int,
+    date:DateTime.parse(r['date_match'] as String),lieu:r['lieu'] as String,
+    statut:r['statut'] as String,scoreDomicile:r['score_domicile'] as int?,
+    scoreExterieur:r['score_exterieur'] as int?);
+  Map<String,Object?> get data=>{
+    'domicile':domicile,'exterieur':exterieur,
+    'date_match':date.toIso8601String(),'lieu':lieu,'statut':statut,
+    'score_domicile':scoreDomicile,'score_exterieur':scoreExterieur};
 }
 class Joueur {
   final int? id;final String nom,prenom,tel;final String? naissance,photo;final int clubId;final bool favori;
-  const Joueur({this.id,required this.nom,required this.prenom,required this.tel,required this.clubId,this.naissance,this.photo,this.favori=false});
-  factory Joueur.from(Map<String,Object?> row)=>Joueur(id:row['id'] as int,nom:row['nom'] as String,prenom:row['prenom'] as String,tel:row['tel'] as String,clubId:row['club_id'] as int,naissance:row['date_naiss'] as String?,photo:row['photo'] as String?,favori:(row['favorite'] as int? ?? 0)==1);
-  Map<String,Object?> get data=>{'nom':nom,'prenom':prenom,'tel':tel,'club_id':clubId,'date_naiss':naissance,'photo':photo,'favorite':favori?1:0};
+  final int buts,passes,matchs,cartons;
+  const Joueur({this.id,required this.nom,required this.prenom,required this.tel,
+    required this.clubId,this.naissance,this.photo,this.favori=false,
+    this.buts=0,this.passes=0,this.matchs=0,this.cartons=0});
+  factory Joueur.from(Map<String,Object?> row)=>Joueur(id:row['id'] as int,nom:row['nom'] as String,prenom:row['prenom'] as String,tel:row['tel'] as String,clubId:row['club_id'] as int,naissance:row['date_naiss'] as String?,photo:row['photo'] as String?,favori:(row['favorite'] as int? ?? 0)==1,
+    buts:(row['goals'] as int? ?? 0),passes:(row['assists'] as int? ?? 0),
+    matchs:(row['appearances'] as int? ?? 0),cartons:(row['yellow_cards'] as int? ?? 0));
+  Map<String,Object?> get data=>{'nom':nom,'prenom':prenom,'tel':tel,'club_id':clubId,'date_naiss':naissance,'photo':photo,'favorite':favori?1:0,
+    'goals':buts,'assists':passes,'appearances':matchs,'yellow_cards':cartons};
   String get fullName=>prenom+' '+nom;
 }
 class Repository {
@@ -29,25 +58,122 @@ class Repository {
   Future<Database> get db async {
     if(_db!=null)return _db!;
     final databasePath=await storage.initializeStorage();
-    _db=await openDatabase(databasePath,version:1,
+    _db=await openDatabase(databasePath,version:2,
       onConfigure:(db) async=>db.execute('PRAGMA foreign_keys = ON'),
       onCreate:(db,version) async {
-        await db.execute('CREATE TABLE clubs (id INTEGER PRIMARY KEY AUTOINCREMENT,libelle TEXT NOT NULL COLLATE NOCASE UNIQUE)');
-        await db.execute('CREATE TABLE joueurs (id INTEGER PRIMARY KEY AUTOINCREMENT,nom TEXT NOT NULL,prenom TEXT NOT NULL,date_naiss TEXT,tel TEXT NOT NULL,photo TEXT,club_id INTEGER NOT NULL REFERENCES clubs(id) ON DELETE RESTRICT,favorite INTEGER NOT NULL DEFAULT 0)');
+        await db.execute('CREATE TABLE clubs (id INTEGER PRIMARY KEY AUTOINCREMENT,libelle TEXT NOT NULL COLLATE NOCASE UNIQUE,logo TEXT)');
+        await db.execute('CREATE TABLE joueurs (id INTEGER PRIMARY KEY AUTOINCREMENT,nom TEXT NOT NULL,prenom TEXT NOT NULL,date_naiss TEXT,tel TEXT NOT NULL,photo TEXT,club_id INTEGER NOT NULL REFERENCES clubs(id) ON DELETE RESTRICT,favorite INTEGER NOT NULL DEFAULT 0,goals INTEGER NOT NULL DEFAULT 0,assists INTEGER NOT NULL DEFAULT 0,appearances INTEGER NOT NULL DEFAULT 0,yellow_cards INTEGER NOT NULL DEFAULT 0)');
         await db.execute('CREATE INDEX joueur_club_index ON joueurs(club_id)');
-        for(final name in ['Club Africain','Espérance Sportive','Étoile Sportive']){await db.insert('clubs',{'libelle':name});}
+        final logos=[
+          'https://commons.wikimedia.org/wiki/Special:FilePath/Club_africain.logo.png',
+          'https://commons.wikimedia.org/wiki/Special:FilePath/Logo_1987.jpg',
+          'https://commons.wikimedia.org/wiki/Special:FilePath/Etoile_du_Sahel.png'
+        ];
+        final names=['Club Africain','Espérance Sportive','Étoile Sportive'];
+        for(var i=0;i<names.length;i++){
+          await db.insert('clubs',{'libelle':names[i],'logo':logos[i]});
+        }
         final demo=[['Ben Ali','Youssef','22111222',1],['Trabelsi','Amine','98333444',1],['Mansour','Rayen','55123456',2],['Jaziri','Malek','20456789',2],['Gharbi','Sami','29123456',3],['Khalfallah','Karim','95123456',3]];
-        for(final row in demo){await db.insert('joueurs',{'nom':row[0],'prenom':row[1],'tel':row[2],'club_id':row[3]});}
+        for(var i=0;i<demo.length;i++){
+          final row=demo[i];
+          await db.insert('joueurs',{'nom':row[0],'prenom':row[1],
+            'tel':row[2],'club_id':row[3],
+            'photo':'https://randomuser.me/api/portraits/men/${[11,12,14,19,22,35][i]}.jpg',
+            'goals':[8,3,12,5,7,2][i],'assists':[4,6,2,5,3,4][i],
+            'appearances':[14,12,15,13,12,11][i],
+            'yellow_cards':[2,1,3,2,0,1][i]});
+        }
+        await _createRencontres(db);
+        await _seedRencontres(db);
+      },
+      onUpgrade:(db,oldVersion,newVersion) async {
+        if(oldVersion<2){
+          await db.execute('ALTER TABLE clubs ADD COLUMN logo TEXT');
+          await db.execute('ALTER TABLE joueurs ADD COLUMN goals INTEGER NOT NULL DEFAULT 0');
+          await db.execute('ALTER TABLE joueurs ADD COLUMN assists INTEGER NOT NULL DEFAULT 0');
+          await db.execute('ALTER TABLE joueurs ADD COLUMN appearances INTEGER NOT NULL DEFAULT 0');
+          await db.execute('ALTER TABLE joueurs ADD COLUMN yellow_cards INTEGER NOT NULL DEFAULT 0');
+          await _createRencontres(db);
+          final logos=[
+            'https://commons.wikimedia.org/wiki/Special:FilePath/Club_africain.logo.png',
+            'https://commons.wikimedia.org/wiki/Special:FilePath/Logo_1987.jpg',
+            'https://commons.wikimedia.org/wiki/Special:FilePath/Etoile_du_Sahel.png'
+          ];
+          final names=['Club Africain','Espérance Sportive','Étoile Sportive'];
+          for(var i=0;i<names.length;i++){
+            await db.update('clubs',{'logo':logos[i]},
+              where:'libelle = ? AND (logo IS NULL OR logo = ?)',whereArgs:[names[i],'']);
+          }
+          final demoNames=['Ben Ali','Trabelsi','Mansour','Jaziri','Gharbi','Khalfallah'];
+          final demoFirst=['Youssef','Amine','Rayen','Malek','Sami','Karim'];
+          for(var i=0;i<demoNames.length;i++){
+            await db.update('joueurs',{
+              'photo':'https://randomuser.me/api/portraits/men/${[11,12,14,19,22,35][i]}.jpg',
+              'goals':[8,3,12,5,7,2][i],'assists':[4,6,2,5,3,4][i],
+              'appearances':[14,12,15,13,12,11][i],
+              'yellow_cards':[2,1,3,2,0,1][i]},
+              where:'nom = ? AND prenom = ? AND photo IS NULL',
+              whereArgs:[demoNames[i],demoFirst[i]]);
+          }
+          await _seedRencontres(db);
+        }
       });
     return _db!;
   }
+  static Future<void> _createRencontres(Database db) async {
+    await db.execute('CREATE TABLE IF NOT EXISTS rencontres ('
+      'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+      'domicile INTEGER NOT NULL REFERENCES clubs(id) ON DELETE RESTRICT,'
+      'exterieur INTEGER NOT NULL REFERENCES clubs(id) ON DELETE RESTRICT,'
+      'date_match TEXT NOT NULL,lieu TEXT NOT NULL,'
+      "statut TEXT NOT NULL DEFAULT 'À venir',"
+      'score_domicile INTEGER,score_exterieur INTEGER,'
+      'CHECK(domicile <> exterieur))');
+  }
+  static Future<void> _seedRencontres(Database db) async {
+    final count=Sqflite.firstIntValue(await db.rawQuery(
+      'SELECT COUNT(*) FROM rencontres'))??0;
+    if(count>0)return;
+    final rows=await db.query('clubs',
+      where:'libelle IN (?,?,?)',
+      whereArgs:['Club Africain','Espérance Sportive','Étoile Sportive']);
+    if(rows.length<3)return;
+    int id(String name)=>rows.firstWhere((r)=>r['libelle']==name)['id'] as int;
+    final now=DateTime.now();
+    final fixtures=[
+      ['Club Africain','Espérance Sportive',3,'Stade de Radès'],
+      ['Étoile Sportive','Club Africain',7,'Stade olympique de Sousse'],
+      ['Espérance Sportive','Étoile Sportive',12,'Stade de Radès']
+    ];
+    for(final fixture in fixtures){
+      final day=(fixture[2] as int);
+      final date=DateTime(now.year,now.month,now.day+day,17,30);
+      await db.insert('rencontres',{
+        'domicile':id(fixture[0] as String),
+        'exterieur':id(fixture[1] as String),
+        'date_match':date.toIso8601String(),
+        'lieu':fixture[3],'statut':'À venir'});
+    }
+
+  }
   Future<List<Club>> clubs() async=>(await (await db).query('clubs',orderBy:'libelle COLLATE NOCASE')).map(Club.from).toList();
   Future<List<Joueur>> joueurs() async=>(await (await db).query('joueurs',orderBy:'prenom COLLATE NOCASE')).map(Joueur.from).toList();
-  Future<void> saveClub(Club c) async {final d=await db;if(c.id==null){await d.insert('clubs',{'libelle':c.libelle});}else{await d.update('clubs',{'libelle':c.libelle},where:'id=?',whereArgs:[c.id]);}}
+  Future<void> saveClub(Club c) async {final d=await db;if(c.id==null){await d.insert('clubs',{'libelle':c.libelle,'logo':c.logo});}else{await d.update('clubs',{'libelle':c.libelle,'logo':c.logo},where:'id=?',whereArgs:[c.id]);}}
   Future<void> deleteClub(int id) async {await (await db).delete('clubs',where:'id=?',whereArgs:[id]);}
   Future<void> saveJoueur(Joueur j) async {final d=await db;if(j.id==null){await d.insert('joueurs',j.data);}else{await d.update('joueurs',j.data,where:'id=?',whereArgs:[j.id]);}}
   Future<void> deleteJoueur(int id) async {await (await db).delete('joueurs',where:'id=?',whereArgs:[id]);}
   Future<void> favori(Joueur j) async {await (await db).update('joueurs',{'favorite':j.favori?0:1},where:'id=?',whereArgs:[j.id]);}
+  Future<List<Rencontre>> rencontres() async =>
+    (await (await db).query('rencontres',orderBy:'date_match ASC'))
+       .map(Rencontre.from).toList();
+  Future<void> saveRencontre(Rencontre m) async {
+    final d=await db;
+    if(m.id==null){await d.insert('rencontres',m.data);}
+    else{await d.update('rencontres',m.data,where:'id=?',whereArgs:[m.id]);}
+  }
+  Future<void> deleteRencontre(int id) async {
+    await (await db).delete('rencontres',where:'id=?',whereArgs:[id]);
+  }
 }
 class ChampionnatApp extends StatelessWidget {
   const ChampionnatApp({super.key});
