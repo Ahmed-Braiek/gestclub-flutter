@@ -700,10 +700,11 @@ class _AccueilState extends State<Accueil> {
         itemCount:clubs.length,
         gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount:box.maxWidth>=970?3:box.maxWidth>=580?2:1,
-          mainAxisExtent:210,mainAxisSpacing:16,crossAxisSpacing:16),
+          mainAxisExtent:224,mainAxisSpacing:16,crossAxisSpacing:16),
         itemBuilder:(context,i){
           final club=clubs[i];
           final count=joueurs.where((j)=>j.clubId==club.id).length;
+          final accent=Color(demoClubColor(club.libelle));
           return TweenAnimationBuilder<double>(
             tween:Tween(begin:0,end:1),
             duration:Duration(milliseconds:250+(i%6)*45),
@@ -715,13 +716,17 @@ class _AccueilState extends State<Accueil> {
               onTap:()=>navigate(2,club:club.id),
               child:Column(
                 crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  Container(height:5,width:double.infinity,
+                    margin:const EdgeInsets.only(bottom:10),
+                    decoration:BoxDecoration(color:accent,
+                      borderRadius:BorderRadius.circular(9))),
                   Row(children:[
                     MediaImage(source:club.logo,size:65,
                       fallback:Icons.shield_outlined),
                     const Spacer(),
                     StatusPill(text:'${count} JOUEURS',
-                      color:AppPalette.primary,
-                      background:AppPalette.primaryLight),
+                      color:accent,
+                      background:accent.withValues(alpha:.1)),
                   ]),
                   const SizedBox(height:14),
                   Text(club.libelle,maxLines:1,
@@ -1001,9 +1006,11 @@ class _AccueilState extends State<Accueil> {
         itemCount:filtered.length,
         gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount:box.maxWidth>=1080?3:box.maxWidth>=680?2:1,
-          mainAxisExtent:245,mainAxisSpacing:14,crossAxisSpacing:14),
+          mainAxisExtent:282,mainAxisSpacing:14,crossAxisSpacing:14),
         itemBuilder:(context,i){
           final player=filtered[i];
+          final club=clubs.where((c)=>c.id==player.clubId).firstOrNull;
+          final accent=Color(demoClubColor(club?.libelle));
           return TweenAnimationBuilder<double>(
             tween:Tween(begin:0,end:1),
             duration:Duration(milliseconds:260+(i%5)*50),
@@ -1012,6 +1019,11 @@ class _AccueilState extends State<Accueil> {
               child:Transform.translate(
                 offset:Offset(0,12*(1-value)),child:child)),
             child:PressableCard(child:Column(children:[
+              Container(height:5,width:double.infinity,
+                margin:const EdgeInsets.only(bottom:10),
+                decoration:BoxDecoration(
+                  gradient:LinearGradient(colors:[accent,accent.withValues(alpha:.35)]),
+                  borderRadius:BorderRadius.circular(8))),
               Row(children:[
                 MediaImage(source:player.photo,size:59),
                 const SizedBox(width:12),
@@ -1021,11 +1033,16 @@ class _AccueilState extends State<Accueil> {
                       overflow:TextOverflow.ellipsis,
                       style:const TextStyle(
                         fontSize:16,fontWeight:FontWeight.w900)),
-                    const SizedBox(height:6),
-                    Text(clubName(player.clubId),
-                      maxLines:1,overflow:TextOverflow.ellipsis,
-                      style:const TextStyle(
-                        color:AppPalette.muted,fontSize:12)),
+                    const SizedBox(height:7),
+                    Row(children:[
+                      Container(width:7,height:7,decoration:BoxDecoration(
+                        color:accent,shape:BoxShape.circle)),
+                      const SizedBox(width:5),
+                      Expanded(child:Text(clubName(player.clubId),
+                        maxLines:1,overflow:TextOverflow.ellipsis,
+                        style:TextStyle(color:accent,fontSize:12,
+                          fontWeight:FontWeight.w900))),
+                    ]),
                   ])),
                 IconButton(
                   tooltip:player.favori?'Retirer des favoris':'Ajouter aux favoris',
@@ -1040,7 +1057,18 @@ class _AccueilState extends State<Accueil> {
                       color:player.favori?AppPalette.amber:AppPalette.muted)),
                 ),
               ]),
-              const SizedBox(height:15),
+              const SizedBox(height:9),
+              Row(children:[
+                MediaImage(source:club?.logo,size:22,fallback:Icons.shield_outlined),
+                const SizedBox(width:7),
+                Expanded(child:Text('${club?.libelle??'Sans club'} • ÉQUIPE',
+                  maxLines:1,overflow:TextOverflow.ellipsis,
+                  style:TextStyle(color:accent,fontWeight:FontWeight.w900,
+                    fontSize:10,letterSpacing:.5))),
+                const Text('DÉMO',style:TextStyle(
+                  color:AppPalette.muted,fontSize:9,fontWeight:FontWeight.w700)),
+              ]),
+              const SizedBox(height:10),
               Row(children:[
                 Expanded(child:_playerStatTile(
                   Icons.sports_soccer_rounded,'${player.buts}','Buts')),
@@ -1055,7 +1083,7 @@ class _AccueilState extends State<Accueil> {
               const Divider(),
               Row(children:[
                 Expanded(child:TextButton.icon(
-                  onPressed:()=>appeler(player),
+                  onPressed:player.tel.trim().isEmpty?null:()=>appeler(player),
                   icon:const Icon(Icons.call_outlined,size:18),
                   label:const Text('Appeler'))),
                 CrudActions(
