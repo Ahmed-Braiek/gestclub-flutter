@@ -1155,7 +1155,7 @@ class _JoueurFormState extends State<JoueurForm> {
           const SizedBox(height:12),TextFormField(controller:tel,keyboardType:TextInputType.phone,
             validator:(v) {
               if(v==null||v.trim().isEmpty)return null;
-              return RegExp(r'^\+?[0-9 ]{6,16}\$').hasMatch(v.trim())?null:'Numéro invalide';
+              return RegExp(r'^\+?[0-9 ]{6,16}$').hasMatch(v.trim())?null:'Numéro invalide';
             },
             decoration:const InputDecoration(labelText:'Téléphone (facultatif)')),
           const SizedBox(height:12),DropdownButtonFormField<int>(initialValue:clubId,isExpanded:true,
