@@ -310,17 +310,18 @@ class _AccueilState extends State<Accueil> {
     }catch(e){notify('Export CSV impossible : '+e.toString());}
   }
   Widget navigation(bool wide) {
+    const navSections=[0,1,2,5,3,4];
     final icons=[
       Icons.space_dashboard_outlined,
       Icons.shield_outlined,
       Icons.groups_2_outlined,
+      Icons.calendar_month_outlined,
       Icons.star_border_rounded,
       Icons.bar_chart_rounded,
-      Icons.calendar_month_outlined,
     ];
     final names=[
       'Tableau de bord','Clubs','Joueurs',
-      'Favoris','Statistiques','Matchs',
+      'Matchs','Favoris','Statistiques',
     ];
     return Container(
       width:wide?255:null,
@@ -362,23 +363,23 @@ class _AccueilState extends State<Accueil> {
             Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:3),
               child:Material(color:Colors.transparent,
                 child:ListTile(
-                  selected:section==i,
+                  selected:section==navSections[i],
                   selectedTileColor:const Color(0xFF30466B),
                   shape:RoundedRectangleBorder(
                     borderRadius:BorderRadius.circular(13)),
                   contentPadding:const EdgeInsets.symmetric(horizontal:13),
                   leading:Icon(icons[i],
-                    color:section==i?Colors.white:const Color(0xFF9DB0CB),
+                    color:section==navSections[i]?Colors.white:const Color(0xFF9DB0CB),
                     size:21),
                   title:Text(names[i],style:TextStyle(
-                    color:section==i?Colors.white:const Color(0xFFB9C7DA),
-                    fontSize:13,fontWeight:section==i?FontWeight.w800:FontWeight.w500)),
-                  trailing:section==i?Container(width:5,height:21,
+                    color:section==navSections[i]?Colors.white:const Color(0xFFB9C7DA),
+                    fontSize:13,fontWeight:section==navSections[i]?FontWeight.w800:FontWeight.w500)),
+                  trailing:section==navSections[i]?Container(width:5,height:21,
                     decoration:BoxDecoration(
                       color:const Color(0xFFFFC36E),
                       borderRadius:BorderRadius.circular(9))):null,
                   onTap:(){
-                    navigate(i);
+                    navigate(navSections[i]);
                     if(!wide)Navigator.pop(context);
                   },
                 ))),
@@ -786,7 +787,7 @@ class _AccueilState extends State<Accueil> {
         ])),
       const SizedBox(height:29),
       heading('Classement des buteurs',
-        'Données entrées manuellement dans les fiches des joueurs'),
+        'Valeurs de démonstration, pas des statistiques officielles'),
       if(ranking.isEmpty)
         const EmptyPanel(title:'Aucune statistique disponible',
           subtitle:'Ajoutez un joueur pour afficher le classement.',
@@ -946,7 +947,7 @@ class _AccueilState extends State<Accueil> {
     return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       SectionTitle(
         title:section==3?'Vos joueurs favoris':'Gestion des joueurs',
-        subtitle:'${filtered.length} joueur(s) • Annuaire et performances',
+        subtitle:'${filtered.length} joueurs • Effectifs historiques de démonstration',
         action:OutlinedButton.icon(onPressed:()=>editJoueur(),
           icon:const Icon(Icons.person_add_alt_1_outlined,size:18),
           label:const Text('Ajouter'))),
