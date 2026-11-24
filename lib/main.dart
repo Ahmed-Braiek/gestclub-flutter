@@ -544,34 +544,30 @@ class JoueurForm extends StatefulWidget {
 }
 class _JoueurFormState extends State<JoueurForm> {
   final form=GlobalKey<FormState>();late final TextEditingController nom,prenom,tel;
-  int? clubId;DateTime? birth;String? photo;bool photoLoading=false;
+  int? clubId;DateTime? birth;String? photo;
+  late final TextEditingController buts,passes,matchs,cartons;
   @override void initState(){
     super.initState();final j=widget.joueur;
     nom=TextEditingController(text:j?.nom??'');prenom=TextEditingController(text:j?.prenom??'');
     tel=TextEditingController(text:j?.tel??'');clubId=j?.clubId??widget.clubs.first.id;
     photo=j?.photo;birth=j?.naissance==null?null:DateTime.tryParse(j!.naissance!);
+    buts=TextEditingController(text:'${j?.buts??0}');passes=TextEditingController(text:'${j?.passes??0}');
+    matchs=TextEditingController(text:'${j?.matchs??0}');cartons=TextEditingController(text:'${j?.cartons??0}');
   }
-  @override void dispose(){nom.dispose();prenom.dispose();tel.dispose();super.dispose();}
-  Future<void> choosePhoto() async {
-    try{
-      final selected=await ImagePicker().pickImage(source:ImageSource.gallery,imageQuality:75,maxWidth:1000);
-      if(selected==null)return;
-      setState(()=>photoLoading=true);
-      final bytes=await selected.readAsBytes();
-      if(mounted)setState(()=>photo=base64Encode(bytes));
-    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Photo impossible : '+e.toString())));}
-    finally{if(mounted)setState(()=>photoLoading=false);}
-  }
+  @override void dispose(){nom.dispose();prenom.dispose();tel.dispose();
+    buts.dispose();passes.dispose();matchs.dispose();cartons.dispose();super.dispose();}
   String? requiredField(String? s)=>s==null||s.trim().isEmpty?'Champ obligatoire':null;
+  Widget _statInput(TextEditingController controller,String label)=>TextFormField(
+    controller:controller,keyboardType:TextInputType.number,
+    decoration:InputDecoration(labelText:label),
+    validator:(v){final n=int.tryParse(v??'');return n==null||n<0?'Entier ≥ 0 requis':null;});
+
   @override Widget build(BuildContext context){
-    final hasPhoto=photo!=null&&photo!.isNotEmpty;
     return AlertDialog(title:Text(widget.joueur==null?'Ajouter un joueur':'Modifier un joueur'),
       content:SizedBox(width:430,child:SingleChildScrollView(child:Form(key:form,
         child:Column(mainAxisSize:MainAxisSize.min,children:[
-          CircleAvatar(radius:34,backgroundImage:hasPhoto?MemoryImage(base64Decode(photo!)):null,
-            child:hasPhoto?null:const Icon(Icons.person,size:32)),
-          TextButton.icon(onPressed:photoLoading?null:choosePhoto,
-            icon:const Icon(Icons.photo_camera_outlined),label:const Text('Choisir une photo')),
+          MediaField(initial:photo,title:'Photo du joueur',
+            onChanged:(v)=>photo=v),
           const SizedBox(height:8),TextFormField(controller:prenom,validator:requiredField,
             decoration:const InputDecoration(labelText:'Prénom *')),
           const SizedBox(height:12),TextFormField(controller:nom,validator:requiredField,
@@ -590,18 +586,169 @@ class _JoueurFormState extends State<JoueurForm> {
             if(date!=null)setState(()=>birth=date);
           },child:InputDecorator(decoration:const InputDecoration(labelText:'Date de naissance',
               suffixIcon:Icon(Icons.calendar_month_outlined)),
+
             child:Text(birth==null?'Choisir une date':
-              birth!.day.toString().padLeft(2,'0')+'/'+birth!.month.toString().padLeft(2,'0')+'/'+birth!.year.toString())))
+              birth!.day.toString().padLeft(2,'0')+'/'+birth!.month.toString().padLeft(2,'0')+'/'+birth!.year.toString()))),
+          const SizedBox(height:17),
+          const Align(alignment:Alignment.centerLeft,child:Text('Statistiques du joueur',
+            style:TextStyle(fontWeight:FontWeight.bold))),
+          const SizedBox(height:8),
+          Row(children:[
+            Expanded(child:_statInput(buts,'Buts')),
+            const SizedBox(width:8),
+            Expanded(child:_statInput(passes,'Passes'))
+          ]),
+          const SizedBox(height:10),
+          Row(children:[
+            Expanded(child:_statInput(matchs,'Matchs')),
+            const SizedBox(width:8),
+            Expanded(child:_statInput(cartons,'Cartons jaunes'))
+          ])
         ])))),
       actions:[TextButton(onPressed:()=>Navigator.pop(context),child:const Text('Annuler')),
-        FilledButton(onPressed:photoLoading?null:(){
+        FilledButton(onPressed:(){
           if(!form.currentState!.validate())return;
           final naissance=birth==null?null:
             birth!.year.toString()+'-'+birth!.month.toString().padLeft(2,'0')+'-'+birth!.day.toString().padLeft(2,'0');
           Navigator.pop(context,Joueur(id:widget.joueur?.id,nom:nom.text.trim(),prenom:prenom.text.trim(),
             tel:tel.text.trim(),clubId:clubId!,naissance:naissance,photo:photo,
-            favori:widget.joueur?.favori??false));
+            favori:widget.joueur?.favori??false,
+            buts:int.parse(buts.text),passes:int.parse(passes.text),
+            matchs:int.parse(matchs.text),cartons:int.parse(cartons.text)));
         },child:const Text('Enregistrer'))]
     );
   }
+}
+
+
+class ClubForm extends StatefulWidget {
+  final Club? club;
+  const ClubForm({super.key,this.club});
+  @override State<ClubForm> createState()=>_ClubFormState();
+}
+class _ClubFormState extends State<ClubForm> {
+  final keyForm=GlobalKey<FormState>();
+  late final TextEditingController nom;
+  String? logo;
+  @override void initState(){
+    super.initState();nom=TextEditingController(text:widget.club?.libelle??'');
+    logo=widget.club?.logo;
+  }
+  @override void dispose(){nom.dispose();super.dispose();}
+  @override Widget build(BuildContext context)=>AlertDialog(
+    title:Text(widget.club==null?'Nouveau club':'Modifier le club'),
+    content:SizedBox(width:440,child:SingleChildScrollView(child:Form(
+      key:keyForm,child:Column(mainAxisSize:MainAxisSize.min,children:[
+        TextFormField(controller:nom,autofocus:true,
+          decoration:const InputDecoration(labelText:'Nom du club *'),
+          validator:(v)=>v==null||v.trim().isEmpty?'Nom obligatoire':null),
+        const SizedBox(height:18),
+        MediaField(initial:logo,title:'Logo / image du club',
+          onChanged:(v)=>logo=v)
+      ])))),
+    actions:[
+      TextButton(onPressed:()=>Navigator.pop(context),child:const Text('Annuler')),
+      FilledButton(onPressed:(){
+        if(!keyForm.currentState!.validate())return;
+        Navigator.pop(context,Club(nom.text.trim(),id:widget.club?.id,logo:logo));
+      },child:const Text('Enregistrer'))
+    ]);
+}
+
+class RencontreForm extends StatefulWidget {
+  final List<Club> clubs;final Rencontre? rencontre;
+  const RencontreForm({super.key,required this.clubs,this.rencontre});
+  @override State<RencontreForm> createState()=>_RencontreFormState();
+}
+class _RencontreFormState extends State<RencontreForm> {
+  final form=GlobalKey<FormState>();
+  late final TextEditingController lieu,scoreD,scoreE;
+  late DateTime date;
+  late int domicile,exterieur;
+  late String statut;
+  @override void initState(){
+    super.initState();final m=widget.rencontre;
+    domicile=m?.domicile??widget.clubs.first.id!;
+    exterieur=m?.exterieur??widget.clubs.firstWhere(
+      (c)=>c.id!=domicile).id!;
+    date=m?.date??DateTime.now().add(const Duration(days:3));
+    statut=m?.statut??'À venir';
+    lieu=TextEditingController(text:m?.lieu??'Stade municipal');
+    scoreD=TextEditingController(text:m?.scoreDomicile?.toString()??'');
+    scoreE=TextEditingController(text:m?.scoreExterieur?.toString()??'');
+  }
+  @override void dispose(){
+    lieu.dispose();scoreD.dispose();scoreE.dispose();super.dispose();
+  }
+  Widget clubSelect(String label,int value,ValueChanged<int?> change)=>
+    DropdownButtonFormField<int>(value:value,isExpanded:true,
+      decoration:InputDecoration(labelText:label),
+      items:widget.clubs.map((c)=>DropdownMenuItem(value:c.id,
+        child:Text(c.libelle,overflow:TextOverflow.ellipsis))).toList(),
+      onChanged:change);
+  String displayDate=> '${date.day.toString().padLeft(2,'0')}/${date.month.toString().padLeft(2,'0')}/${date.year}';
+  String displayTime=> '${date.hour.toString().padLeft(2,'0')}:${date.minute.toString().padLeft(2,'0')}';
+  @override Widget build(BuildContext context)=>AlertDialog(
+    title:Text(widget.rencontre==null?'Planifier un match':'Modifier le match'),
+    content:SizedBox(width:440,child:SingleChildScrollView(child:Form(
+      key:form,child:Column(mainAxisSize:MainAxisSize.min,children:[
+        clubSelect('Club à domicile',domicile,(v){if(v!=null)setState(()=>domicile=v);}),
+        const SizedBox(height:12),
+        clubSelect('Club visiteur',exterieur,(v){if(v!=null)setState(()=>exterieur=v);}),
+        const SizedBox(height:12),
+        TextFormField(controller:lieu,decoration:const InputDecoration(
+          labelText:'Stade / lieu *'),
+          validator:(v)=>v==null||v.trim().isEmpty?'Lieu obligatoire':null),
+        const SizedBox(height:12),
+        Row(children:[
+          Expanded(child:OutlinedButton.icon(icon:const Icon(Icons.calendar_month),
+            label:Text(displayDate),onPressed:() async {
+              final value=await showDatePicker(context:context,initialDate:date,
+                firstDate:DateTime(2020),lastDate:DateTime(2100));
+              if(value!=null)setState(()=>date=DateTime(value.year,value.month,
+                value.day,date.hour,date.minute));
+            })),
+          const SizedBox(width:9),
+          Expanded(child:OutlinedButton.icon(icon:const Icon(Icons.schedule),
+            label:Text(displayTime),onPressed:() async {
+              final value=await showTimePicker(context:context,
+                initialTime:TimeOfDay.fromDateTime(date));
+              if(value!=null)setState(()=>date=DateTime(date.year,date.month,date.day,
+                value.hour,value.minute));
+            }))
+        ]),
+        const SizedBox(height:12),
+        DropdownButtonFormField<String>(value:statut,
+          decoration:const InputDecoration(labelText:'Statut'),
+          items:['À venir','En cours','Terminé','Reporté'].map((v)=>
+            DropdownMenuItem(value:v,child:Text(v))).toList(),
+          onChanged:(v){if(v!=null)setState(()=>statut=v);}),
+        if(statut=='Terminé') ...[
+          const SizedBox(height:12),
+          Row(children:[
+            Expanded(child:TextFormField(controller:scoreD,
+              keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'Buts domicile'),
+              validator:(v)=>int.tryParse(v??'')==null||int.parse(v!)<0?'Score invalide':null)),
+            const SizedBox(width:10),
+            Expanded(child:TextFormField(controller:scoreE,
+              keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'Buts extérieur'),
+              validator:(v)=>int.tryParse(v??'')==null||int.parse(v!)<0?'Score invalide':null))
+          ])
+        ]
+      ])))),
+    actions:[
+      TextButton(onPressed:()=>Navigator.pop(context),child:const Text('Annuler')),
+      FilledButton(onPressed:(){
+        if(!form.currentState!.validate())return;
+        if(domicile==exterieur){
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content:Text('Choisissez deux clubs différents.')));
+          return;
+        }
+        Navigator.pop(context,Rencontre(id:widget.rencontre?.id,
+          domicile:domicile,exterieur:exterieur,date:date,lieu:lieu.text.trim(),
+          statut:statut,scoreDomicile:statut=='Terminé'?int.tryParse(scoreD.text):null,
+          scoreExterieur:statut=='Terminé'?int.tryParse(scoreE.text):null));
+      },child:const Text('Enregistrer'))
+    ]);
 }
