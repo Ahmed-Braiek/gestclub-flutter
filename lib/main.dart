@@ -441,13 +441,11 @@ class _AccueilState extends State<Accueil> {
       if(rencontres.isEmpty)empty('Aucun match planifié. Créez votre première rencontre.')
       else for(final m in rencontres)
         Card(child:Padding(padding:const EdgeInsets.all(18),child:Column(children:[
-          Row(children:[
-            Expanded(child:Row(children:[
-              Icon(m.statut=='Terminé'?Icons.verified:Icons.event,color:blue,size:18),
-              const SizedBox(width:7),
-              Text('${formatDate(m.date)} • ${formatHour(m.date)}',
-                style:const TextStyle(fontWeight:FontWeight.w700)),
-            ])),
+          Wrap(spacing:8,runSpacing:4,
+            crossAxisAlignment:WrapCrossAlignment.center,children:[
+            Icon(m.statut=='Terminé'?Icons.verified:Icons.event,color:blue,size:18),
+            Text('${formatDate(m.date)} • ${formatHour(m.date)}',
+              style:const TextStyle(fontWeight:FontWeight.w700)),
             Chip(label:Text(m.statut)),
             IconButton(icon:const Icon(Icons.edit_outlined),
               tooltip:'Modifier le match',onPressed:()=>editRencontre(m)),
