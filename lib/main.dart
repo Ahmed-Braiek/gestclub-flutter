@@ -247,8 +247,8 @@ class _AccueilState extends State<Accueil> {
   Future<void> exporter() async {
     try{
       String quote(String x)=>'"'+x.replaceAll('"','""')+'"';
-      final lines=['ID;Nom;Prenom;DateNaiss;Telephone;Club;Favori'];
-      for(final j in joueurs){lines.add([j.id.toString(),j.nom,j.prenom,j.naissance??'',j.tel,clubName(j.clubId),j.favori?'Oui':'Non'].map(quote).join(';'));}
+      final lines=['ID;Nom;Prenom;DateNaiss;Telephone;Club;Favori;Buts;Passes;Apparitions;CartonsJaunes'];
+      for(final j in joueurs){lines.add([j.id.toString(),j.nom,j.prenom,j.naissance??'',j.tel,clubName(j.clubId),j.favori?'Oui':'Non',j.buts.toString(),j.passes.toString(),j.matchs.toString(),j.cartons.toString()].map(quote).join(';'));}
       final bytes=utf8.encode('\uFEFF'+lines.join('\r\n'));
       await SharePlus.instance.share(ShareParams(files:[XFile.fromData(Uint8List.fromList(bytes),mimeType:'text/csv',name:'joueurs_championnat.csv')],fileNameOverrides:['joueurs_championnat.csv'],text:'Export des joueurs'));
     }catch(e){notify('Export CSV impossible : '+e.toString());}
