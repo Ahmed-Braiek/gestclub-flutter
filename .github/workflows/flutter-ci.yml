@@ -1,4 +1,5 @@
-name: Flutter CI
+name: Flutter CI and Android APK
+
 on:
   push:
     branches: [main]
@@ -9,39 +10,62 @@ concurrency:
   group: flutter-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  verify:
-    name: Analyze and test
+  build:
+    name: Verify and build Android APK
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+
       - name: Flutter and Dart versions
         run: |
           flutter --version
           dart --version
+
       - name: Create platform scaffolding
         run: flutter create --platforms=android,windows,web --project-name championnat_pro .
+
       - name: Install dependencies
         run: flutter pub get
+
       - name: Remove Flutter template counter test
         run: rm -f test/widget_test.dart
+
       - name: Static analysis
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
       - name: Unit tests
         run: flutter test
+
       - name: Set up web SQLite assets
         run: dart run sqflite_common_ffi_web:setup
+
       - name: Build Chrome-compatible web app
         run: flutter build web
-      - name: Build Android APK
-        run: flutter build apk --debug
-      - name: Upload debug APK
+
+      - name: Build Android release APK
+        run: flutter build apk --release
+
+      - name: Upload installable release APK
         uses: actions/upload-artifact@v4
         with:
-          name: championnat-pro-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: championnat-pro-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+          retention-days: 30
